@@ -303,7 +303,6 @@ void createMST(Mat im) {
     vNode *neighbourNode, *min;
     while (diffMap.any()) {
         min = extractMin();
-        totalExtractTime += (t2-t1);
         min->inForest = true;
         assert(min->parentEdge != NONE);
         (min->neighbours[min->parentEdge])->childEdges.push_back(min);
