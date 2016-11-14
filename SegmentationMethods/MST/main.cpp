@@ -31,6 +31,8 @@ struct vNode {
 
     int distance = UINT8_MAX+1;
 
+    int pathMin = 0;
+    int pathMax = 0;
     //for display and debugging purposes
     int row = 0;
     int col = 0;
@@ -120,6 +122,8 @@ void resetNodes() {
         node->mapNext = node->mapPrev = 0;
         node->numTimesVisted = 0;
         node->value = 0;
+        node->pathMax = 0;
+        node->pathMin = 0;
         node->distance = UINT8_MAX+1;
         v_it++;
     }
@@ -338,80 +342,67 @@ void passUp() {
     }
 
     //now we can do the actual pass up
-    auto l_it = leaves.begin();
     vNode *curNode, *parentNode;
-    int pathMin, pathMax;
-    while (l_it != leaves.end()) {
-        curNode = *l_it;
-        pathMin = pathMax = curNode->value;
+    for(int i = 0; i < leaves.size(); i++) {
+        curNode = leaves[i];
         bool seedFound = false;
         while (curNode->parentEdge != NONE) {
-            //put curnode at back if still waiting on subtree traversal
             if(curNode->numTimesVisted > 0  && curNode->numTimesVisted < curNode->childEdges.size()) {
-                if (curNode->numTimesVisted == 1)
-                    leaves.push_back(curNode);
-                ++l_it;
                 break;
             }
 
             seedFound = (curNode->seedNode || curNode->distance != UINT8_MAX+1);
             if (curNode->seedNode) {
                 curNode->distance = 0;
-                pathMin = pathMax = curNode->value;
+                curNode->pathMin = curNode->pathMax = curNode->value;
             }
             parentNode = curNode->neighbours[curNode->parentEdge];
             //don't want to update distances for anything that isn't connected to a seed node from below
             if (seedFound) {
-                if (parentNode->value < pathMin)
-                    pathMin = parentNode->value;
-                else if (parentNode->value > pathMax)
-                    pathMax = parentNode->value;
-                parentNode->distance = min(parentNode->distance, pathMax-pathMin);
+                if (parentNode->value < curNode->pathMin) {
+                    parentNode->pathMin = parentNode->value;
+                    parentNode->pathMax = curNode->pathMax;
+                } else if (parentNode->value > curNode->pathMax) {
+                    parentNode->pathMax = parentNode->value;
+                    parentNode->pathMin = curNode->pathMin;
+                }
+                parentNode->distance = min(parentNode->distance, parentNode->pathMax-parentNode->pathMin);
             }
             parentNode->numTimesVisted++;
             curNode = parentNode;
         }
-        ++l_it;
     }
 }
 
 void passDown() {
     std::queue<vNode*> bfsQueue;
-    std::queue<std::pair<int, int> > pathMinMax;
-    vNode *curNode = &(*vNodes.begin());
-    if (curNode->seedNode) curNode->distance = 0;
-    for (int i = 0; i < curNode->childEdges.size(); i++) {
-        bfsQueue.push(curNode->childEdges[i]);
-        pathMinMax.push(std::pair<int, int>(curNode->value, curNode->value));
-    }
-
-    //do a BFS pass down the tree, storing the path bounds for each potential path in the queue as we go
-    std::pair<int,int> pathBounds;
-    int pathMin, pathMax;
+    vNode *curNode;
+    bfsQueue.push(&(*vNodes.begin()));
     while (!bfsQueue.empty()) {
         curNode = bfsQueue.front();
         bfsQueue.pop();
-        pathBounds = pathMinMax.front();
-        pathMinMax.pop();
-
         if (curNode->seedNode) {
             curNode->distance = 0;
-            pathMin = pathMax = curNode->value;
+            curNode->pathMin = curNode->pathMax = curNode->value;
         } else {
-            if (curNode->value < pathBounds.first)
-                pathMin = curNode->value;
-            else if (curNode->value > pathBounds.second)
-                pathMax = curNode->value;
-            else {
-                pathMin = pathBounds.first;
-                pathMax = pathBounds.second;
+            vNode *parentNode = curNode->neighbours[curNode->parentEdge];
+            if (curNode->value < parentNode->pathMin) {
+                curNode->pathMin = curNode->value;
+                curNode->pathMax = parentNode->pathMax;
             }
-            curNode->distance = min(curNode->distance, pathMax-pathMin);
+            else if (curNode->value > parentNode->pathMax) {
+                curNode->pathMax = curNode->value;
+                curNode->pathMin = parentNode->pathMin;
+            }
+            else {
+                curNode->pathMin = parentNode->pathMin;
+                curNode->pathMax = parentNode->pathMax;
+            }
+            curNode->distance = min(curNode->distance, curNode->pathMax-curNode->pathMin);
         }
 
         for (int i = 0; i < curNode->childEdges.size(); i++) {
             bfsQueue.push(curNode->childEdges[i]);
-            pathMinMax.push(std::pair<int,int>(pathMin, pathMax));
         }
     }
 }
@@ -424,7 +415,7 @@ int main(int argc, char *argv[])
 {
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/720test.jpg", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/240ptest.jpg", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
@@ -442,15 +433,16 @@ int main(int argc, char *argv[])
     createVertexGrid(scaledImage.rows, scaledImage.cols);
     initializeDiffBins();
 
+    int64 t1 = getTickCount();
     Mat gray_image;
     cvtColor(scaledImage, gray_image, CV_BGR2GRAY );
     GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
+
     updateVertexGridWeights(gray_image);
-    int64 t1 = getTickCount();
     createMST(gray_image);
-    int64 t2 = getTickCount();
      passUp();
      passDown();
+     int64 t2 = getTickCount();
     std::cout << "PER FRAME TIME: " << (t2 - t1)/getTickFrequency() << std::endl;
 
     visualizeMST(gray_image);
