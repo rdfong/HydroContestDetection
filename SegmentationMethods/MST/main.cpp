@@ -301,11 +301,8 @@ void createMST(Mat im) {
 
     int neighbourWeight, i;
     vNode *neighbourNode, *min;
-    int64 totalExtractTime = 0;
     while (diffMap.any()) {
-        int64 t1 = getTickCount();
         min = extractMin();
-        int64 t2 = getTickCount();
         totalExtractTime += (t2-t1);
         min->inForest = true;
         assert(min->parentEdge != NONE);
@@ -322,7 +319,6 @@ void createMST(Mat im) {
             }
         }
     }
-    std::cout << "extract: " << totalExtractTime/getTickFrequency() <<std::endl;
 }
 
 void passUp() {
