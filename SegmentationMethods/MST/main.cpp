@@ -424,7 +424,7 @@ int main(int argc, char *argv[])
 {
 #if VIDEO == 0
     Mat image;
-    image = imread("../media/horse.jpg", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/horse.jpg", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
