@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
+#include "custom_bitset.h"
 
 using namespace cv;
 
@@ -41,7 +42,7 @@ struct vNode {
 //root is vNodes.begin()
 std::vector<vNode> vNodes;
 std::vector<vNode*> leaves;
-std::bitset<256> diffMap;
+custom_bitset<256> diffMap;
 std::vector<vNode*> diffBins(256);
 std::vector<vNode> dummyNodes;
 
@@ -270,13 +271,12 @@ void remove(vNode* node) {
     diffMap.set(weight, (diffBins[weight]->mapNext != nullptr));
 }
 
-
 vNode* extractMin() {
-    //TODO replace in linux with the high speed version
-    int first = -1;
-    for (int i = 0; i < 256 && first < 0; i++) {
+    int first;// = diffMap._Find_first();
+    for (int i = 0; i < 256; i++) {
         if (diffMap.test(i)) {
             first = i;
+            break;
         }
     }
     assert(diffBins[first]->mapNext);
@@ -301,8 +301,12 @@ void createMST(Mat im) {
 
     int neighbourWeight, i;
     vNode *neighbourNode, *min;
+    int64 totalExtractTime = 0;
     while (diffMap.any()) {
+        int64 t1 = getTickCount();
         min = extractMin();
+        int64 t2 = getTickCount();
+        totalExtractTime += (t2-t1);
         min->inForest = true;
         assert(min->parentEdge != NONE);
         (min->neighbours[min->parentEdge])->childEdges.push_back(min);
@@ -318,6 +322,7 @@ void createMST(Mat im) {
             }
         }
     }
+    std::cout << "extract: " << totalExtractTime/getTickFrequency() <<std::endl;
 }
 
 void passUp() {
@@ -424,7 +429,7 @@ int main(int argc, char *argv[])
 {
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/horse.jpg", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/720test.jpg", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
@@ -445,8 +450,8 @@ int main(int argc, char *argv[])
     Mat gray_image;
     cvtColor(scaledImage, gray_image, CV_BGR2GRAY );
     GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
-    int64 t1 = getTickCount();
     updateVertexGridWeights(gray_image);
+    int64 t1 = getTickCount();
     createMST(gray_image);
     int64 t2 = getTickCount();
      passUp();

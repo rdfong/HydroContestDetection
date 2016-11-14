@@ -1,6 +1,6 @@
 project(MST)
 cmake_minimum_required(VERSION 2.8)
-set(CMAKE_BUILD_TYPE Debug) #TODO: fuck you qt, just fuck you hard in the ass, switch to O3
+set(CMAKE_BUILD_TYPE Debug)
 set (CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++")
 set(CMAKE_EXE_LINKER_FLAGS "-std=c++11 -stdlib=libc++")
