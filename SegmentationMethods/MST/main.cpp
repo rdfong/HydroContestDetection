@@ -27,12 +27,12 @@ struct vNode {
     uint8_t weights[5] = {MAX_DIFF,MAX_DIFF,MAX_DIFF,MAX_DIFF,MAX_DIFF};
     uint8_t value;
     //for pass up traversal
-    uint8_t numTimesVisted;
+    uint8_t numTimesVisited;
 
     int distance = UINT8_MAX+1;
 
-    int pathMin = 0;
-    int pathMax = 0;
+    uint8_t pathMin = 0;
+    uint8_t pathMax = 0;
     //for display and debugging purposes
     int row = 0;
     int col = 0;
@@ -120,7 +120,7 @@ void resetNodes() {
         node->parentEdge = NONE;
         node->inForest = false;
         node->mapNext = node->mapPrev = 0;
-        node->numTimesVisted = 0;
+        node->numTimesVisited = 0;
         node->value = 0;
         node->pathMax = 0;
         node->pathMin = 0;
@@ -236,15 +236,15 @@ void visualizeMST(Mat im) {
                 arrowedLine(imZeros, Point2i(curNode->col*20+5,curNode->row*20+5), Point2i(childNode->col*20+5,childNode->row*20+5),Scalar(255,255,255),1,8,0,0.25);
             }*/
             //draw a line to the neighbour point, but make sure to offset so we can see how many edges there are
-            MBDimage.at<uint8_t>(curNode->row, curNode->col) = curNode->distance;
+
+            MBDimage.at<uint8_t>(curNode->row, curNode->col) = curNode->distance == UINT8_MAX+1? 128: curNode->distance;
             v_it++;
         }
     }
-   // imshow("test", imZeros);
+    //imshow("test", imZeros);
 
     float scale = 1.0;
     Size size(scale*MBDimage.cols, scale*MBDimage.rows);
-    imshow("orig", im);
     Mat scaledImage;
     resize(MBDimage, scaledImage, size, 0,0, INTER_NEAREST);
     imshow("mbd", scaledImage);
@@ -345,30 +345,35 @@ void passUp() {
     vNode *curNode, *parentNode;
     for(int i = 0; i < leaves.size(); i++) {
         curNode = leaves[i];
-        bool seedFound = false;
         while (curNode->parentEdge != NONE) {
-            if(curNode->numTimesVisted > 0  && curNode->numTimesVisted < curNode->childEdges.size()) {
+            if(curNode->numTimesVisited > 0  && curNode->numTimesVisited < curNode->childEdges.size()) {
                 break;
             }
 
-            seedFound = (curNode->seedNode || curNode->distance != UINT8_MAX+1);
             if (curNode->seedNode) {
                 curNode->distance = 0;
                 curNode->pathMin = curNode->pathMax = curNode->value;
             }
             parentNode = curNode->neighbours[curNode->parentEdge];
             //don't want to update distances for anything that isn't connected to a seed node from below
-            if (seedFound) {
+
+            //if path originated from a seed node
+            if (curNode->distance != UINT8_MAX+1) {
+                int pathMin, pathMax;
                 if (parentNode->value < curNode->pathMin) {
-                    parentNode->pathMin = parentNode->value;
-                    parentNode->pathMax = curNode->pathMax;
+                    pathMin = parentNode->value;
+                    pathMax = curNode->pathMax;
                 } else if (parentNode->value > curNode->pathMax) {
-                    parentNode->pathMax = parentNode->value;
-                    parentNode->pathMin = curNode->pathMin;
+                    pathMax = parentNode->value;
+                    pathMin = curNode->pathMin;
                 }
-                parentNode->distance = min(parentNode->distance, parentNode->pathMax-parentNode->pathMin);
+                if (parentNode->distance > pathMax-pathMin) {
+                    parentNode->pathMin = pathMin;
+                    parentNode->pathMax = pathMax;
+                    parentNode->distance = pathMax-pathMin;
+                }
             }
-            parentNode->numTimesVisted++;
+            parentNode->numTimesVisited++;
             curNode = parentNode;
         }
     }
@@ -386,19 +391,24 @@ void passDown() {
             curNode->pathMin = curNode->pathMax = curNode->value;
         } else {
             vNode *parentNode = curNode->neighbours[curNode->parentEdge];
+            int pathMin, pathMax;
             if (curNode->value < parentNode->pathMin) {
-                curNode->pathMin = curNode->value;
-                curNode->pathMax = parentNode->pathMax;
+                pathMin = curNode->value;
+                pathMax = parentNode->pathMax;
             }
             else if (curNode->value > parentNode->pathMax) {
-                curNode->pathMax = curNode->value;
-                curNode->pathMin = parentNode->pathMin;
+                pathMax = curNode->value;
+                pathMin = parentNode->pathMin;
             }
             else {
-                curNode->pathMin = parentNode->pathMin;
-                curNode->pathMax = parentNode->pathMax;
+                pathMin = parentNode->pathMin;
+                pathMax = parentNode->pathMax;
             }
-            curNode->distance = min(curNode->distance, curNode->pathMax-curNode->pathMin);
+            if (curNode->distance > pathMax-pathMin) {
+                 curNode->pathMin = pathMin;
+                 curNode->pathMax = pathMax;
+                 curNode->distance = pathMax - pathMin;
+            }
         }
 
         for (int i = 0; i < curNode->childEdges.size(); i++) {
@@ -411,17 +421,104 @@ void getBoundingBoxes(Mat binIm) {
 
 }
 
+const int K = 3;
+void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Mat& out) {
+    Mat labels;
+    int numPix = boundaryPixels.size();
+    kmeans(boundaryPixels,K,labels,TermCriteria(TermCriteria::EPS+TermCriteria::COUNT, 3, 0.01), 1, KMEANS_RANDOM_CENTERS);
+    uint labelCount[K] = {0,0,0};
+    std::vector<std::vector<cv::Point3f> > clusterPoints(3);
+    auto label_it = labels.begin<int>();
+    for (int row = 0; row < labels.rows; row++) {
+        int label = *label_it;
+        labelCount[label]++;
+        clusterPoints[label].push_back(boundaryPixels[row]);
+        ++label_it;
+    }
+
+    std::vector<Mat> backgroundDisMaps(K);
+    std::vector<Mat> backgroundMeans(K);
+    for (int k = 0; k < K; k++) {
+        backgroundDisMaps[k] = Mat::zeros(out.rows, out.cols, CV_32F);
+        Mat pointsMat = Mat::zeros(clusterPoints[k].size(), 3, CV_32F);
+        auto points_it = pointsMat.begin<float>();
+        for (int i = 0; i < clusterPoints[k].size(); i++) {
+            cv::Point3f p = clusterPoints[k][i];
+            *(points_it) = p.x;
+            *(++points_it) = p.y;
+            *(++points_it) = p.z;
+             ++points_it;
+        }
+        Mat mean;
+        reduce(pointsMat,mean, 0, CV_REDUCE_AVG);
+        backgroundMeans[k] = mean;
+    }
+
+    auto out_it_0 = backgroundDisMaps[0].begin<float>();
+    auto out_it_1 = backgroundDisMaps[1].begin<float>();
+    auto out_it_2 = backgroundDisMaps[2].begin<float>();
+    auto in_it = in.begin<cv::Vec3b>();
+    cv::Point3f curColor, diff0, diff1, diff2;
+   for (int r = 0; r < in.rows; r++) {
+        for (int c = 0; c < in.cols; c++) {
+            curColor = cv::Point3f(*in_it);
+            diff0 = curColor - cv::Point3f(backgroundMeans[0]);
+            diff1 = curColor - cv::Point3f(backgroundMeans[1]);
+            diff2 = curColor - cv::Point3f(backgroundMeans[2]);
+            *out_it_0 = diff0.dot(diff0);
+            *out_it_1 = diff1.dot(diff1);
+            *out_it_2 = diff2.dot(diff2);
+            ++in_it;
+            ++out_it_0;
+            ++out_it_1;
+            ++out_it_2;
+        }
+    }
+
+    for (int k = 0; k < K; k++) {
+        double minVal;
+        double maxVal;
+        cv::minMaxLoc(backgroundDisMaps[k], &minVal, &maxVal);
+        backgroundDisMaps[k] /= maxVal;
+        out += ((float)labelCount[k]/(float)numPix*backgroundDisMaps[k]);
+    }
+}
+
+void getMBDImageAndBoundaryPix(Mat& color_im, Mat& mbd_image, std::vector<cv::Point3f>& boundaryPixels, int boundarySize) {
+    auto im_it = mbd_image.begin<float>();
+    auto v_it = vNodes.begin();
+    auto color_it = color_im.begin<cv::Vec3b>();
+    vNode* curNode;
+    cv::Vec3b color;
+    int count = 0;
+    for (int row = 0; row < mbd_image.rows; row++) {
+       for (int col = 0; col < mbd_image.cols; col++) {
+           curNode = &*v_it;
+           (*im_it) = curNode->distance/255.0;
+           if (row < boundarySize || row >= mbd_image.rows-boundarySize || col < boundarySize || col >= mbd_image.cols-boundarySize) {
+               color = *color_it;
+               boundaryPixels[count] = (cv::Point3f(color[0], color[1], color[2]));
+               count++;
+           }
+           ++v_it;
+           ++im_it;
+           ++color_it;
+       }
+    }
+    assert(boundaryPixels.size() == count);
+}
+
 int main(int argc, char *argv[])
 {
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/240ptest.jpg", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/planetest.JPG", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
         return -1;
     }
-
+\
     //imshow("orig", image);
     //approximate size, 900 by 600
     float scale = 1.0;
@@ -442,10 +539,57 @@ int main(int argc, char *argv[])
     createMST(gray_image);
      passUp();
      passDown();
+
+     Mat lab;
+     cvtColor(scaledImage, lab, CV_BGR2Lab);
+     int boundary_size = 10;
+     int num_boundary_pixels = (boundary_size*2*(gray_image.cols+gray_image.rows)-4*boundary_size*boundary_size);
+     std::vector<cv::Point3f> boundaryPixels(num_boundary_pixels);
+     Mat mbd_image = Mat::zeros(gray_image.rows, gray_image.cols, CV_32FC1);
+     getMBDImageAndBoundaryPix(lab, mbd_image, boundaryPixels, boundary_size);
+
+     Mat dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
+     getDissimiliarityImage(boundaryPixels, lab, dis_image);
+
+     //combine images
+     Mat combined = mbd_image + dis_image;
+
+     //TODO: try normalizing with CV method
+     double minVal;
+     double maxVal;
+     cv::minMaxLoc(combined, &minVal, &maxVal);
+     combined /= maxVal;
+
+
+     // POST PROCESSING
+     Mat combined8 = combined*255;
+     combined8.convertTo(combined8, CV_8U);
+
+     Mat intermediate;
+     double tau = threshold(combined8, intermediate, 0, 255, THRESH_OTSU);
+     int gamma = 20;
+     cv::exp(-gamma*(combined-tau/255.0), intermediate);
+     combined = 1/(1+intermediate);
+
+      combined*=255;
+      combined.convertTo(combined8, CV_8UC1);
+     threshold(combined8, combined, 0, 255, THRESH_OTSU);
+
+     int erosion_size = 2;
+     Mat element = getStructuringElement( MORPH_ELLIPSE,
+                                          Size( 2*erosion_size + 1, 2*erosion_size+1 ),
+                                          Point( erosion_size, erosion_size ) );
+
+     morphologyEx(combined, combined, MORPH_OPEN, element);
+     morphologyEx(combined, combined, MORPH_DILATE, element);
+
      int64 t2 = getTickCount();
+    imshow("mbd", mbd_image);
+    imshow("dis", dis_image);
+    imshow("combined", combined);
     std::cout << "PER FRAME TIME: " << (t2 - t1)/getTickFrequency() << std::endl;
 
-    visualizeMST(gray_image);
+    //visualizeMST(gray_image);
     waitKey(0);
 #elif VIDEO == 1
        VideoCapture cap("../media/boatm10.mp4"); // open the default camera
@@ -478,7 +622,7 @@ int main(int argc, char *argv[])
            GaussianBlur(gray_image, gray_image, Size(5, 5), 3);
            createMST(image);
            passUp();
-          // passDown();
+           passDown();
 
            framecounter++;
 

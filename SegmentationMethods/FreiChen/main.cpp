@@ -7,7 +7,7 @@ using namespace cv;
 //if most weight closer to the outside of the tight bounding box, probably an object
 int main(int argc, char *argv[])
 {
-   VideoCapture cap("../media/boatm10.mp4"); // open the default camera
+   VideoCapture cap("../../TestMedia/videos/boatm30.mp4"); // open the default camera
    if(!cap.isOpened()) {  // check if we succeeded
        std::cout << "no vid" << std::endl;
        return -1;
