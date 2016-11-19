@@ -425,7 +425,7 @@ const int K = 3;
 void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Mat& out) {
     Mat labels;
     int numPix = boundaryPixels.size();
-    kmeans(boundaryPixels,K,labels,TermCriteria(TermCriteria::EPS+TermCriteria::COUNT, 3, 0.01), 1, KMEANS_RANDOM_CENTERS);
+    kmeans(boundaryPixels,K,labels,TermCriteria(TermCriteria::EPS+TermCriteria::COUNT, 3, 0.001), 1, KMEANS_RANDOM_CENTERS);
     uint labelCount[K] = {0,0,0};
     std::vector<std::vector<cv::Point3f> > clusterPoints(3);
     auto label_it = labels.begin<int>();
@@ -438,6 +438,8 @@ void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Ma
 
     std::vector<Mat> backgroundDisMaps(K);
     std::vector<Mat> backgroundMeans(K);
+    std::vector<Mat> coVarMats(K);
+
     for (int k = 0; k < K; k++) {
         backgroundDisMaps[k] = Mat::zeros(out.rows, out.cols, CV_32F);
         Mat pointsMat = Mat::zeros(clusterPoints[k].size(), 3, CV_32F);
@@ -462,12 +464,13 @@ void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Ma
    for (int r = 0; r < in.rows; r++) {
         for (int c = 0; c < in.cols; c++) {
             curColor = cv::Point3f(*in_it);
-            diff0 = curColor - cv::Point3f(backgroundMeans[0]);
-            diff1 = curColor - cv::Point3f(backgroundMeans[1]);
-            diff2 = curColor - cv::Point3f(backgroundMeans[2]);
+            diff0 = (curColor - cv::Point3f(backgroundMeans[0]));
+            diff1 = (curColor - cv::Point3f(backgroundMeans[1]));
+            diff2 = (curColor - cv::Point3f(backgroundMeans[2]));
             *out_it_0 = diff0.dot(diff0);
             *out_it_1 = diff1.dot(diff1);
             *out_it_2 = diff2.dot(diff2);
+
             ++in_it;
             ++out_it_0;
             ++out_it_1;
@@ -495,6 +498,8 @@ void getMBDImageAndBoundaryPix(Mat& color_im, Mat& mbd_image, std::vector<cv::Po
        for (int col = 0; col < mbd_image.cols; col++) {
            curNode = &*v_it;
            (*im_it) = curNode->distance/255.0;
+          // if (*im_it < 0.5)
+          //     *im_it = 0;
            if (row < boundarySize || row >= mbd_image.rows-boundarySize || col < boundarySize || col >= mbd_image.cols-boundarySize) {
                color = *color_it;
                boundaryPixels[count] = (cv::Point3f(color[0], color[1], color[2]));
@@ -508,17 +513,54 @@ void getMBDImageAndBoundaryPix(Mat& color_im, Mat& mbd_image, std::vector<cv::Po
     assert(boundaryPixels.size() == count);
 }
 
+void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
+    int row, col, rowStart, rowEnd, colStart, colEnd, fRow, fCol;
+    float treeDiff, curIntensity, weight, curTreeDist, total_bilateral_weight, total_bilateral_result;
+    Mat result = Mat::zeros(dis_image.rows, dis_image.cols, CV_32F);
+    std::vector<float*>dis_image_row(dis_image.rows);
+    std::vector<float*>mbd_image_row(mbd_image.rows);
+    for (row = 0; row < dis_image.rows; row++) {
+        dis_image_row[row] = (float*)dis_image.ptr(row);
+        mbd_image_row[row] = (float*)mbd_image.ptr(row);
+    }
+    for (row = 0; row < dis_image.rows; row++) {
+        for (col = 0; col < dis_image.cols; col++) {
+            rowStart = max(row-size, 0);
+            rowEnd = min(row+size, dis_image.rows-1);
+            colStart = max(col-size, 0);
+            colEnd = min(col+size, dis_image.cols-1);
+            curTreeDist = mbd_image_row[row][col];
+            total_bilateral_weight = 0;
+            total_bilateral_result = 0;
+            //filter each pixel and sum the total as we go so we can normalize at the end
+            for (fRow = rowStart; fRow <= rowEnd; fRow++) {
+                for (fCol = colStart; fCol <= colEnd; fCol++) {
+                    treeDiff = std::abs(curTreeDist-mbd_image_row[fRow][fCol]);
+                    curIntensity = dis_image_row[fRow][fCol];
+                    weight = exp(-treeDiff*treeDiff/(2*sigD));
+                    total_bilateral_result += weight*curIntensity;
+                    total_bilateral_weight += weight;
+                }
+            }
+            //normalize the result
+            total_bilateral_result /= total_bilateral_weight;
+            result.at<float>(row,col) = total_bilateral_result;
+        }
+    }
+    dis_image = result;
+}
+
 int main(int argc, char *argv[])
 {
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/planetest.JPG", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/boat9.JPG", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
         return -1;
     }
-\
+
     //imshow("orig", image);
     //approximate size, 900 by 600
     float scale = 1.0;
@@ -532,13 +574,15 @@ int main(int argc, char *argv[])
 
     int64 t1 = getTickCount();
     Mat gray_image;
-    cvtColor(scaledImage, gray_image, CV_BGR2GRAY );
-    GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
 
+    cvtColor(scaledImage, gray_image, CV_BGR2GRAY );
+
+     GaussianBlur(gray_image, gray_image, Size(7, 7),5);
     updateVertexGridWeights(gray_image);
     createMST(gray_image);
      passUp();
      passDown();
+
 
      Mat lab;
      cvtColor(scaledImage, lab, CV_BGR2Lab);
@@ -551,17 +595,22 @@ int main(int argc, char *argv[])
      Mat dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
      getDissimiliarityImage(boundaryPixels, lab, dis_image);
 
-     //combine images
-     Mat combined = mbd_image + dis_image;
+      treeFilter(dis_image, mbd_image, 3, 0.1);
 
-     //TODO: try normalizing with CV method
+     Mat new_dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
+     bilateralFilter(dis_image, new_dis_image, 3, 0.1, 0.1);
+     //combine images
+     Mat combined = mbd_image + new_dis_image;
+
+
      double minVal;
      double maxVal;
      cv::minMaxLoc(combined, &minVal, &maxVal);
      combined /= maxVal;
 
 
-     // POST PROCESSING
+
+     // POST PROCESSING FROM PAPER
      Mat combined8 = combined*255;
      combined8.convertTo(combined8, CV_8U);
 
@@ -572,8 +621,10 @@ int main(int argc, char *argv[])
      combined = 1/(1+intermediate);
 
       combined*=255;
-      combined.convertTo(combined8, CV_8UC1);
+      combined.convertTo(combined, CV_8UC1);
      threshold(combined8, combined, 0, 255, THRESH_OTSU);
+
+     //MY POST PROCESSING
 
      int erosion_size = 2;
      Mat element = getStructuringElement( MORPH_ELLIPSE,
@@ -581,18 +632,23 @@ int main(int argc, char *argv[])
                                           Point( erosion_size, erosion_size ) );
 
      morphologyEx(combined, combined, MORPH_OPEN, element);
+     erosion_size = 3;
+     element = getStructuringElement( MORPH_ELLIPSE,
+                                               Size( 2*erosion_size + 1, 2*erosion_size+1 ),
+                                               Point( erosion_size, erosion_size ) );
+
      morphologyEx(combined, combined, MORPH_DILATE, element);
 
      int64 t2 = getTickCount();
     imshow("mbd", mbd_image);
-    imshow("dis", dis_image);
+    imshow("dis_post", new_dis_image);
     imshow("combined", combined);
     std::cout << "PER FRAME TIME: " << (t2 - t1)/getTickFrequency() << std::endl;
 
     //visualizeMST(gray_image);
     waitKey(0);
 #elif VIDEO == 1
-       VideoCapture cap("../media/boatm10.mp4"); // open the default camera
+       VideoCapture cap("../media/boathm10.mp4"); // open the default camera
        if(!cap.isOpened()) {  // check if we succeeded
            std::cout << "no vid" << std::endl;
            return -1;
@@ -616,7 +672,8 @@ int main(int argc, char *argv[])
 
            int64 t2 = getTickCount();
 
-           cvtColor( image, gray_image, CV_BGR2GRAY );
+           cvtColor( image, gray_image, CV_BGR2HSV );
+
            updateVertexGridWeights(gray_image);
 
            GaussianBlur(gray_image, gray_image, Size(5, 5), 3);
