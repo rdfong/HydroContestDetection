@@ -498,8 +498,6 @@ void getMBDImageAndBoundaryPix(Mat& color_im, Mat& mbd_image, std::vector<cv::Po
        for (int col = 0; col < mbd_image.cols; col++) {
            curNode = &*v_it;
            (*im_it) = curNode->distance/255.0;
-          // if (*im_it < 0.5)
-          //     *im_it = 0;
            if (row < boundarySize || row >= mbd_image.rows-boundarySize || col < boundarySize || col >= mbd_image.cols-boundarySize) {
                color = *color_it;
                boundaryPixels[count] = (cv::Point3f(color[0], color[1], color[2]));
@@ -552,21 +550,57 @@ void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
 
 int main(int argc, char *argv[])
 {
+    int erosion_size = 2;
+    Mat element = getStructuringElement( MORPH_ELLIPSE,
+                                         Size( 2*erosion_size + 1, 2*erosion_size+1 ),
+                                         Point( erosion_size, erosion_size ) );
+
+
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/boat9.JPG", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/planetest.JPG", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
         return -1;
     }
 
-    //imshow("orig", image);
+
     //approximate size, 900 by 600
     float scale = 1.0;
     Size size(scale*image.cols, scale*image.rows);
     Mat scaledImage;
     resize(image, scaledImage, size);
+
+    //-----------------------------------------------------------------
+    //SETUP FREICHEN FILTER BANK
+    float factor = 1.0/(2*sqrt(2));
+    float factor2 = 1.0/6;
+    float factor3 = 1.0/3;
+    float data[81] = {factor, 0.5, factor, 0, 0, 0, -factor, -0.5, -factor,
+                      factor, 0, -factor, 0.5, 0, -0.5, factor, 0, -factor,
+                      0, -factor, 0.5, factor, 0, -factor, -0.5, factor, 0,
+                      0.5, -factor, 0, -factor, 0, factor, 0, factor, -0.5,
+                      0, 0.5, 0, -0.5, 0, -0.5, 0, 0.5, 0,
+                      -0.5, 0, 0.5, 0, 0, 0, 0.5, 0, -0.5,
+                      factor2, -2*factor2, factor2, -2*factor2, 4*factor2, -2*factor2, factor2, -2*factor2, factor2,
+                      -2*factor2, factor2, -2*factor2, factor2, 4*factor2, factor2, -2*factor2, factor2, -2*factor2,
+                      factor3, factor3, factor3, factor3, factor3, factor3};
+
+    std::vector<Mat> fBank;
+    float *pData = data;
+    for (int i = 0; i < 9; i++) {
+        fBank.push_back(Mat(3,3, CV_32F, pData));
+        pData += 9;
+    }
+    Mat frei_image = Mat::zeros(scaledImage.rows, scaledImage.cols, CV_32F);
+    Mat m_term = Mat::zeros(scaledImage.rows, scaledImage.cols, CV_32F);
+    Mat s_term = Mat::zeros(scaledImage.rows, scaledImage.cols, CV_32F);
+
+    //-----------------------------------------------------------------
+
+
+
 
     vNodes.resize(scaledImage.rows*scaledImage.cols);//should only ever call thisonce
     createVertexGrid(scaledImage.rows, scaledImage.cols);
@@ -599,9 +633,23 @@ int main(int argc, char *argv[])
 
      Mat new_dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
      bilateralFilter(dis_image, new_dis_image, 3, 0.1, 0.1);
+
+     //FREICHEN: CONCLUSION: ONLY USE FOR TRACKING, STILL PRODUCES TOO MUCH NOISE IN WATER
+    /* gray_image.convertTo(gray_image, CV_32F);
+     for (int f = 0; f < 9; f++) {
+       filter2D(gray_image, frei_image, -1 , fBank[f]);
+       s_term += frei_image.mul(frei_image);
+       if (f == 1) {
+           m_term = s_term.clone();
+       }
+   }
+   cv::sqrt(m_term/s_term, frei_image);
+
+   cv::threshold(frei_image, frei_image, 0.1, 1.0, THRESH_BINARY);
+   morphologyEx(frei_image, frei_image, MORPH_OPEN, element);
+ morphologyEx(frei_image, frei_image, MORPH_DILATE, element);*/
      //combine images
      Mat combined = mbd_image + new_dis_image;
-
 
      double minVal;
      double maxVal;
@@ -618,30 +666,21 @@ int main(int argc, char *argv[])
      double tau = threshold(combined8, intermediate, 0, 255, THRESH_OTSU);
      int gamma = 20;
      cv::exp(-gamma*(combined-tau/255.0), intermediate);
-     combined = 1/(1+intermediate);
+     combined = 1.0/(1.0+intermediate);
 
       combined*=255;
-      combined.convertTo(combined, CV_8UC1);
-     threshold(combined8, combined, 0, 255, THRESH_OTSU);
+      combined.convertTo(combined, CV_8U);
+
+       morphologyEx(combined, combined, MORPH_DILATE, element);
+     threshold(combined, combined, 0, 255, THRESH_OTSU);
 
      //MY POST PROCESSING
-
-     int erosion_size = 2;
-     Mat element = getStructuringElement( MORPH_ELLIPSE,
-                                          Size( 2*erosion_size + 1, 2*erosion_size+1 ),
-                                          Point( erosion_size, erosion_size ) );
-
      morphologyEx(combined, combined, MORPH_OPEN, element);
-     erosion_size = 3;
-     element = getStructuringElement( MORPH_ELLIPSE,
-                                               Size( 2*erosion_size + 1, 2*erosion_size+1 ),
-                                               Point( erosion_size, erosion_size ) );
-
-     morphologyEx(combined, combined, MORPH_DILATE, element);
 
      int64 t2 = getTickCount();
     imshow("mbd", mbd_image);
     imshow("dis_post", new_dis_image);
+   // imshow("frei", frei_image);
     imshow("combined", combined);
     std::cout << "PER FRAME TIME: " << (t2 - t1)/getTickFrequency() << std::endl;
 
