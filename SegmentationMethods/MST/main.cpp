@@ -558,7 +558,7 @@ int main(int argc, char *argv[])
 
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/openwater.JPG", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/boat9.JPG", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
@@ -607,10 +607,9 @@ int main(int argc, char *argv[])
     createVertexGrid(scaledImage.rows, scaledImage.cols);
     initializeDiffBins();
 
-    int64 t1 = getTickCount();
-
     cvtColor(scaledImage, gray_image, CV_BGR2GRAY );
 
+    int64 t1 = getTickCount();
      GaussianBlur(gray_image, gray_image, Size(3, 3), 1);
     updateVertexGridWeights(gray_image);
     createMST(gray_image);
