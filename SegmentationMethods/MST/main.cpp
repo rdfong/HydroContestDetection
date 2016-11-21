@@ -550,7 +550,7 @@ void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
 
 int main(int argc, char *argv[])
 {
-    int erosion_size = 2;
+    int erosion_size = 1;
     Mat element = getStructuringElement( MORPH_ELLIPSE,
                                          Size( 2*erosion_size + 1, 2*erosion_size+1 ),
                                          Point( erosion_size, erosion_size ) );
@@ -558,7 +558,7 @@ int main(int argc, char *argv[])
 
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/planetest.JPG", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/openwater.JPG", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
@@ -569,7 +569,8 @@ int main(int argc, char *argv[])
     //approximate size, 900 by 600
     float scale = 1.0;
     Size size(scale*image.cols, scale*image.rows);
-    Mat scaledImage;
+    Mat scaledImage, gray_image, lab, mbd_image, dis_image, new_dis_image, combined, combined8, intermediate;
+
     resize(image, scaledImage, size);
 
     //-----------------------------------------------------------------
@@ -607,31 +608,28 @@ int main(int argc, char *argv[])
     initializeDiffBins();
 
     int64 t1 = getTickCount();
-    Mat gray_image;
 
     cvtColor(scaledImage, gray_image, CV_BGR2GRAY );
 
-     GaussianBlur(gray_image, gray_image, Size(7, 7),5);
+     GaussianBlur(gray_image, gray_image, Size(3, 3), 1);
     updateVertexGridWeights(gray_image);
     createMST(gray_image);
      passUp();
      passDown();
 
-
-     Mat lab;
      cvtColor(scaledImage, lab, CV_BGR2Lab);
      int boundary_size = 10;
      int num_boundary_pixels = (boundary_size*2*(gray_image.cols+gray_image.rows)-4*boundary_size*boundary_size);
      std::vector<cv::Point3f> boundaryPixels(num_boundary_pixels);
-     Mat mbd_image = Mat::zeros(gray_image.rows, gray_image.cols, CV_32FC1);
+     mbd_image = Mat::zeros(gray_image.rows, gray_image.cols, CV_32FC1);
      getMBDImageAndBoundaryPix(lab, mbd_image, boundaryPixels, boundary_size);
 
-     Mat dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
+     dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
      getDissimiliarityImage(boundaryPixels, lab, dis_image);
 
       treeFilter(dis_image, mbd_image, 3, 0.1);
 
-     Mat new_dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
+     new_dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
      bilateralFilter(dis_image, new_dis_image, 3, 0.1, 0.1);
 
      //FREICHEN: CONCLUSION: ONLY USE FOR TRACKING, STILL PRODUCES TOO MUCH NOISE IN WATER
@@ -649,7 +647,7 @@ int main(int argc, char *argv[])
    morphologyEx(frei_image, frei_image, MORPH_OPEN, element);
  morphologyEx(frei_image, frei_image, MORPH_DILATE, element);*/
      //combine images
-     Mat combined = mbd_image + new_dis_image;
+     combined = mbd_image + new_dis_image;
 
      double minVal;
      double maxVal;
@@ -659,10 +657,9 @@ int main(int argc, char *argv[])
 
 
      // POST PROCESSING FROM PAPER
-     Mat combined8 = combined*255;
+     combined8 = combined*255;
      combined8.convertTo(combined8, CV_8U);
 
-     Mat intermediate;
      double tau = threshold(combined8, intermediate, 0, 255, THRESH_OTSU);
      int gamma = 20;
      cv::exp(-gamma*(combined-tau/255.0), intermediate);
@@ -671,11 +668,12 @@ int main(int argc, char *argv[])
       combined*=255;
       combined.convertTo(combined, CV_8U);
 
-       morphologyEx(combined, combined, MORPH_DILATE, element);
+       morphologyEx(combined, combined, MORPH_OPEN, element);
+
      threshold(combined, combined, 0, 255, THRESH_OTSU);
 
      //MY POST PROCESSING
-     morphologyEx(combined, combined, MORPH_OPEN, element);
+      morphologyEx(combined, combined, MORPH_DILATE, element);
 
      int64 t2 = getTickCount();
     imshow("mbd", mbd_image);
@@ -715,7 +713,7 @@ int main(int argc, char *argv[])
 
            updateVertexGridWeights(gray_image);
 
-           GaussianBlur(gray_image, gray_image, Size(5, 5), 3);
+           GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
            createMST(image);
            passUp();
            passDown();
