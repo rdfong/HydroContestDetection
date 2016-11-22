@@ -427,7 +427,7 @@ void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Ma
     int numPix = boundaryPixels.size();
     kmeans(boundaryPixels,K,labels,TermCriteria(TermCriteria::EPS+TermCriteria::COUNT, 3, 0.001), 1, KMEANS_RANDOM_CENTERS);
     uint labelCount[K] = {0,0,0};
-    std::vector<std::vector<cv::Point3f> > clusterPoints(3);
+    std::vector<std::vector<cv::Point3f> > clusterPoints(K);
     auto label_it = labels.begin<int>();
     for (int row = 0; row < labels.rows; row++) {
         int label = *label_it;
@@ -548,11 +548,45 @@ void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
     dis_image = result;
 }
 
+
+void customOtsuThreshold(Mat& im) {
+    float percent = 1.0;
+    int curThresh = 0;
+    Mat imValues = im.reshape(0, im.rows*im.cols);
+    Mat threshed = Mat::ones(imValues.rows,1, CV_8U);
+
+
+    while (percent > .25 && curThresh <= 255) {
+        Mat idx, temp;
+        findNonZero(threshed, idx);
+        Mat nonZeroSubset = Mat::zeros(idx.rows, 1, CV_8U);
+        auto im_it = nonZeroSubset.begin<unsigned char>();
+        for (int i = 0; i < idx.rows; i++) {
+            *im_it= imValues.at<unsigned char>(idx.at<int>(i, 1), 0);
+            ++im_it;
+        }
+
+        int newThresh = (int)threshold(nonZeroSubset, temp, 0, 255, THRESH_OTSU);
+        if (curThresh == newThresh)
+            curThresh = 256;
+        else {
+            curThresh = newThresh;
+
+        }
+        threshed.setTo(0, imValues < curThresh);
+        int countWhite = sum(threshed).val[0];
+        percent = (float)countWhite/(im.rows*im.cols);
+    }
+    if (curThresh == 0)
+        curThresh = 256;
+    threshold(im, im, curThresh, 255, THRESH_BINARY);
+}
+
 int main(int argc, char *argv[])
 {
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/boat4.JPG", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/boat2.JPG", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
@@ -601,10 +635,16 @@ int main(int argc, char *argv[])
 
     cvtColor(scaledImage, gray_image, CV_BGR2GRAY );
 
-    int64 t1 = getTickCount();
+     int64 t1 = getTickCount();
+     //TODO: this is a trade off, smaller farther away objects get fucked, maybe the solution is to not use this and have better background seeds
      GaussianBlur(gray_image, gray_image, Size(3, 3), 1);
-    updateVertexGridWeights(gray_image);
-    createMST(gray_image);
+     //more blur deals with open water better...
+     // GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
+    // GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
+    // GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
+     //This messes with smaller and more difficult to distinguish objects. would rather not remove information, maybe blur just the edges
+     updateVertexGridWeights(gray_image);
+     createMST(gray_image);
      passUp();
      passDown();
 
@@ -617,11 +657,9 @@ int main(int argc, char *argv[])
 
      dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
      getDissimiliarityImage(boundaryPixels, lab, dis_image);
-
-      treeFilter(dis_image, mbd_image, 3, 0.1);
-
+     treeFilter(dis_image, mbd_image, 3, 0.5);
      new_dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
-     bilateralFilter(dis_image, new_dis_image, 3, 0.1, 0.1);
+     bilateralFilter(dis_image, new_dis_image, 3, 0.5, 0.5);
 
      //FREICHEN: CONCLUSION: ONLY USE FOR TRACKING, STILL PRODUCES TOO MUCH NOISE IN WATER
     /* gray_image.convertTo(gray_image, CV_32F);
@@ -634,66 +672,73 @@ int main(int argc, char *argv[])
    }
    cv::sqrt(m_term/s_term, frei_image);
 
-   cv::threshold(frei_image, frei_image, 0.1, 1.0, THRESH_BINARY);
-   morphologyEx(frei_image, frei_image, MORPH_OPEN, element);
- morphologyEx(frei_image, frei_image, MORPH_DILATE, element);*/
+
+   cv::threshold(frei_image, frei_image, 0.1, 1.0, THRESH_BINARY);*/
+
+     Mat rawCombined;
      //combine images
-     combined = mbd_image + new_dis_image;
+     rawCombined = mbd_image + new_dis_image;
 
      double minVal;
      double maxVal;
-     cv::minMaxLoc(combined, &minVal, &maxVal);
-     combined /= maxVal;
-
+     cv::minMaxLoc(rawCombined, &minVal, &maxVal);
+     rawCombined /= maxVal;
 
 
      // POST PROCESSING FROM PAPER
-     combined8 = combined*255;
-     combined8.convertTo(combined8, CV_8U);
+     combined = rawCombined*255;
+     combined.convertTo(combined, CV_8U);
 
-     double tau = threshold(combined8, intermediate, 0, 255, THRESH_OTSU);
+     double tau = threshold(combined, intermediate, 0, 255, THRESH_OTSU);
      int gamma = 20;
-     cv::exp(-gamma*(combined-tau/255.0), intermediate);
+     cv::exp(-gamma*(rawCombined-tau/255.0), intermediate);
      combined = 1.0/(1.0+intermediate);
 
       combined*=255;
       combined.convertTo(combined, CV_8U);
 
-     threshold(combined, combined, 0, 255, THRESH_OTSU);
+  //  threshold(combined, combined, 0, 255, THRESH_OTSU);
+    customOtsuThreshold(combined);
    //adaptiveThreshold(combined, combined, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0);
 
 
-        vector<vector<Point> > contours;
-        vector<Vec4i> hierarchy;
-      findContours( combined.clone(), contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
-      vector<Rect> boundRect;
-      for( int i = 0; i < contours.size(); i++ )
-      {
-          Rect curRect = boundingRect(contours[i]);
-          bool isContained = false;
-          for (int j = 0; j < contours.size(); j++) {
-              if (i==j) continue;
-              Rect otherRect = boundingRect(contours[j]);
-              Point tl = curRect.tl();
-              tl.x += 1;
-              tl.y += 1;
-              Point br = curRect.br();
-              br.x -= 1;
-              br.y -= 1;
-              if (otherRect.contains(tl) && otherRect.contains(br)) {
-                  isContained = true;
-                  break;
+    //TODO: std test may benefit from testing on expanded rect boxes
+    if (maxVal-minVal > 0.75) {
+            vector<vector<Point> > contours;
+            vector<Vec4i> hierarchy;
+          findContours( combined.clone(), contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+          vector<Rect> boundRect;
+          for( int i = 0; i < contours.size(); i++ )
+          {
+              Rect curRect = boundingRect(contours[i]);
+              bool isContained = false;
+              for (int j = 0; j < contours.size(); j++) {
+                  if (i==j) continue;
+                  Rect otherRect = boundingRect(contours[j]);
+                  Point tl = curRect.tl();
+                  tl.x += 1;
+                  tl.y += 1;
+                  Point br = curRect.br();
+                  br.x -= 1;
+                  br.y -= 1;
+                  if (otherRect.contains(tl) && otherRect.contains(br)) {
+                      isContained = true;
+                      break;
+                  }
+              }
+
+              Mat mean, std;
+              meanStdDev(rawCombined(curRect), mean, std);
+              if (!isContained && std.at<double>(0,0) >= 0.1 && curRect.area() < (.2*combined.rows*combined.cols) && curRect.area() > 50) {
+                curRect.width += 6;
+                curRect.height += 6;
+                curRect.x = max(curRect.x-3, 0);
+                curRect.y = max(curRect.y-3, 0);
+                boundRect.push_back(curRect);
+                rectangle(scaledImage, curRect, Scalar(0, 255,0), 1);
               }
           }
-          if (!isContained && curRect.area() < scaledImage.rows*scaledImage.cols*.25 && curRect.area() > 50) {
-              curRect.width += 6;
-              curRect.height += 6;
-              curRect.x = max(curRect.x-3, 0);
-              curRect.y = max(curRect.y-3, 0);
-            boundRect.push_back(curRect);
-            rectangle(scaledImage, curRect, Scalar(0, 255,0), 1);
-          }
-      }
+    }
 
      int64 t2 = getTickCount();
     imshow("mbd", mbd_image);
@@ -706,7 +751,7 @@ int main(int argc, char *argv[])
     //visualizeMST(gray_image);
     waitKey(0);
 #elif VIDEO == 1
-       VideoCapture cap("../media/boathm10.mp4"); // open the default camera
+       VideoCapture cap("../media/blank.mp4"); // open the default camera
        if(!cap.isOpened()) {  // check if we succeeded
            std::cout << "no vid" << std::endl;
            return -1;
