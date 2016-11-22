@@ -550,15 +550,9 @@ void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
 
 int main(int argc, char *argv[])
 {
-    int erosion_size = 1;
-    Mat element = getStructuringElement( MORPH_ELLIPSE,
-                                         Size( 2*erosion_size + 1, 2*erosion_size+1 ),
-                                         Point( erosion_size, erosion_size ) );
-
-
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/boat3.JPG", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/boat4.JPG", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
@@ -599,8 +593,6 @@ int main(int argc, char *argv[])
     Mat s_term = Mat::zeros(scaledImage.rows, scaledImage.cols, CV_32F);
 
     //-----------------------------------------------------------------
-
-
 
 
     vNodes.resize(scaledImage.rows*scaledImage.cols);//should only ever call thisonce
@@ -667,18 +659,48 @@ int main(int argc, char *argv[])
       combined*=255;
       combined.convertTo(combined, CV_8U);
 
-       morphologyEx(combined, combined, MORPH_OPEN, element);
-
      threshold(combined, combined, 0, 255, THRESH_OTSU);
+   //adaptiveThreshold(combined, combined, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0);
 
-     //MY POST PROCESSING
-      morphologyEx(combined, combined, MORPH_DILATE, element);
+
+        vector<vector<Point> > contours;
+        vector<Vec4i> hierarchy;
+      findContours( combined.clone(), contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+      vector<Rect> boundRect;
+      for( int i = 0; i < contours.size(); i++ )
+      {
+          Rect curRect = boundingRect(contours[i]);
+          bool isContained = false;
+          for (int j = 0; j < contours.size(); j++) {
+              if (i==j) continue;
+              Rect otherRect = boundingRect(contours[j]);
+              Point tl = curRect.tl();
+              tl.x += 1;
+              tl.y += 1;
+              Point br = curRect.br();
+              br.x -= 1;
+              br.y -= 1;
+              if (otherRect.contains(tl) && otherRect.contains(br)) {
+                  isContained = true;
+                  break;
+              }
+          }
+          if (!isContained && curRect.area() < scaledImage.rows*scaledImage.cols*.25 && curRect.area() > 50) {
+              curRect.width += 6;
+              curRect.height += 6;
+              curRect.x = max(curRect.x-3, 0);
+              curRect.y = max(curRect.y-3, 0);
+            boundRect.push_back(curRect);
+            rectangle(scaledImage, curRect, Scalar(0, 255,0), 1);
+          }
+      }
 
      int64 t2 = getTickCount();
     imshow("mbd", mbd_image);
     imshow("dis_post", new_dis_image);
    // imshow("frei", frei_image);
     imshow("combined", combined);
+    imshow("final result", scaledImage);
     std::cout << "PER FRAME TIME: " << (t2 - t1)/getTickFrequency() << std::endl;
 
     //visualizeMST(gray_image);

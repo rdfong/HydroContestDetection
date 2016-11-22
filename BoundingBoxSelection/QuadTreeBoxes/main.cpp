@@ -36,10 +36,13 @@ void selectBoundingBoxes(Mat grayImage) {
 
 void drawBoundingBoxes(Mat& displayImage) {
     Scalar color = Scalar(128,128,128);
+    Mat onlyBoxes = Mat::zeros(displayImage.rows, displayImage.cols, CV_8U);
     for( size_t i = 0; i< boundingBoxes.size(); i++ )
     {
       rectangle( displayImage, boundingBoxes[i].tl(), boundingBoxes[i].br(), color, 1, 8, 0 );
+      rectangle( onlyBoxes, boundingBoxes[i].tl(), boundingBoxes[i].br(), color, 1, 8, 0 );
     }
+    imshow("boxOnly", onlyBoxes);
     imshow("bounding", displayImage);
 }
 
