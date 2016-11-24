@@ -740,71 +740,105 @@ int main(int argc, char *argv[])
               }
           }
 
-          //deal with box intersections
-          for( int i = 0; i < boundRects.size(); i++ )
-          {
-              curRect = boundRects[i];
-              for (int j = 0; j < boundRects.size(); j++) {
-                  otherRect = boundRects[j];
-                  if (curRect == otherRect)
-                      continue;
-                  intersection = curRect & otherRect;
-                  if (intersection.area() == curRect.area()) {
-                      //bounding rect is contained, erase it and decrement counter
-                      boundRects.erase(boundRects.begin()+i);
-                      i--;
-                      break;
-                  } else if (intersection.area() > 0) {
-                      //try to merge rectangles
-                      Mat mask1, mask2;
+          std::vector<std::vector<Rect> > intersectionGroups;
+          std::vector<std::pair<Point2i, Point2i> > finalBoxBounds;
 
-                      combined(curRect).copyTo(mask1);
-                      temp1 = image(curRect);
-                      split(temp1, bgr);
-                      getNonZeroPix<unsigned char>(mask1, bgr[0], bgr[0]);
-                      getNonZeroPix<unsigned char>(mask1, bgr[1], bgr[1]);
-                      getNonZeroPix<unsigned char>(mask1, bgr[2], bgr[2]);
-                      std::vector<Mat> input(3);
-                      input[2] = bgr[2];
-                      input[1] = bgr[1];
-                      input[0] = bgr[0];
-                      nonZeroSubset = Mat::zeros(bgr[0].rows, bgr[0].cols, CV_8U);
-                      cv::merge(input, nonZeroSubset);
-                      calcHist(&nonZeroSubset, imgCount, channels, Mat(), hist1, dims, sizes, ranges);
-                      normalize( hist1, hist1);
+          for (int k = 0; k < boundRects.size(); k++) {
+                curRect = boundRects[k];
+                bool intersectionFound = false;
 
-                      combined(otherRect).copyTo(mask2);
-                      temp2 = image(otherRect);
-                      split(temp2, bgr);
-                      getNonZeroPix<unsigned char>(mask2, bgr[0], bgr[0]);
-                      getNonZeroPix<unsigned char>(mask2, bgr[1], bgr[1]);
-                      getNonZeroPix<unsigned char>(mask2, bgr[2], bgr[2]);
-                      input[2] = bgr[2];
-                      input[1] = bgr[1];
-                      input[0] = bgr[0];
-                      nonZeroSubset = Mat::zeros(bgr[0].rows, bgr[0].cols, CV_8U);
-                      cv::merge(input, nonZeroSubset);
-                      calcHist(&nonZeroSubset, imgCount, channels, Mat(), hist2, dims, sizes, ranges);
-                      normalize( hist2, hist2);
+                std::vector<int> groupsToMerge;
+                //check for intersections
+                for (int i = 0; i < intersectionGroups.size(); i++) {
+                    for (int j = 0; j < intersectionGroups[i].size(); j++) {
+                        otherRect = intersectionGroups[i][j];
+                        intersection = curRect & otherRect;
+                        //one is contained by the other
+                        if (intersection.area() == curRect.area() || intersection.area() == otherRect.area()) {
+                            intersectionGroups[i].push_back(curRect);
+                            finalBoxBounds[i].first = Point2i(min(finalBoxBounds[i].first.x, curRect.tl().x), min(finalBoxBounds[i].first.y, curRect.tl().y));
+                            finalBoxBounds[i].second = Point2i(max(finalBoxBounds[i].second.x, curRect.br().x), max(finalBoxBounds[i].second.y, curRect.br().y));
+                            //multiple intersecting groups may be found, need to find out what to merge
+                            intersectionFound = true;
+                            groupsToMerge.push_back(i);
+                            break;
+                        } else if (intersection.area() > 0) {
+                            Mat mask1, mask2;
+                            combined(curRect).copyTo(mask1);
+                            temp1 = image(curRect);
+                            split(temp1, bgr);
+                            getNonZeroPix<unsigned char>(mask1, bgr[0], bgr[0]);
+                            getNonZeroPix<unsigned char>(mask1, bgr[1], bgr[1]);
+                            getNonZeroPix<unsigned char>(mask1, bgr[2], bgr[2]);
+                            std::vector<Mat> input(3);
+                            input[2] = bgr[2];
+                            input[1] = bgr[1];
+                            input[0] = bgr[0];
+                            nonZeroSubset = Mat::zeros(bgr[0].rows, bgr[0].cols, CV_8U);
+                            cv::merge(input, nonZeroSubset);
+                            calcHist(&nonZeroSubset, imgCount, channels, Mat(), hist1, dims, sizes, ranges);
+                            normalize( hist1, hist1);
 
-                      double val = compareHist(hist1, hist2, CV_COMP_INTERSECT);
+                            combined(otherRect).copyTo(mask2);
+                            temp2 = image(otherRect);
+                            split(temp2, bgr);
+                            getNonZeroPix<unsigned char>(mask2, bgr[0], bgr[0]);
+                            getNonZeroPix<unsigned char>(mask2, bgr[1], bgr[1]);
+                            getNonZeroPix<unsigned char>(mask2, bgr[2], bgr[2]);
+                            input[2] = bgr[2];
+                            input[1] = bgr[1];
+                            input[0] = bgr[0];
+                            nonZeroSubset = Mat::zeros(bgr[0].rows, bgr[0].cols, CV_8U);
+                            cv::merge(input, nonZeroSubset);
+                            calcHist(&nonZeroSubset, imgCount, channels, Mat(), hist2, dims, sizes, ranges);
+                            normalize( hist2, hist2);
 
-                      //std::cout << val << std::endl;
-                      if (val < 2.0) {
-                         //merge curRect with otherRect
-                          Point2i tl(min(curRect.tl().x, otherRect.tl().x), min(curRect.tl().y, otherRect.tl().y));
-                          Point2i br(max(curRect.br().x, otherRect.br().x), max(curRect.br().y, otherRect.br().y));
-                          boundRects[j] = Rect(tl,br);
-                          boundRects.erase(boundRects.begin()+i);
-                          i--;
-                      }
-                      break;
-                  }
-              }
+                            double val = compareHist(hist1, hist2, CV_COMP_INTERSECT);
+                            //std::cout << val << std::endl;
+                            if (val < 2.0) {
+                               //merge curRect with otherRect
+                                Point2i tl(min(curRect.tl().x, otherRect.tl().x), min(curRect.tl().y, otherRect.tl().y));
+                                Point2i br(max(curRect.br().x, otherRect.br().x), max(curRect.br().y, otherRect.br().y));
+
+                                intersectionGroups[i].push_back(curRect);
+                                finalBoxBounds[i].first = Point2i(min(finalBoxBounds[i].first.x, curRect.tl().x), min(finalBoxBounds[i].first.y, curRect.tl().y));
+                                finalBoxBounds[i].second = Point2i(max(finalBoxBounds[i].second.x, curRect.br().x), max(finalBoxBounds[i].second.y, curRect.br().y));
+
+                                intersectionFound = true;
+                                groupsToMerge.push_back(i);
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (groupsToMerge.size() > 1) {
+                    //merge groups
+                    for (int i = groupsToMerge.size()-1; i > 0; i--) {
+                        int mergeTo = groupsToMerge[0];
+                        int mergeFrom = groupsToMerge[i];
+                        intersectionGroups[mergeTo].insert(intersectionGroups[mergeTo].begin(), intersectionGroups[mergeFrom].begin(), intersectionGroups[mergeFrom].end());
+                        finalBoxBounds[mergeTo].first = Point2i(min(finalBoxBounds[mergeTo].first.x, finalBoxBounds[mergeFrom].first.x),
+                                                                min(finalBoxBounds[mergeTo].first.y, finalBoxBounds[mergeFrom].first.y));
+
+                        finalBoxBounds[mergeTo].second = Point2i(max(finalBoxBounds[mergeTo].second.x, finalBoxBounds[mergeFrom].second.x),
+                                                                 max(finalBoxBounds[mergeTo].second.y, finalBoxBounds[mergeFrom].second.y));
+
+                        intersectionGroups.erase(intersectionGroups.begin()+mergeFrom);
+                        finalBoxBounds.erase(finalBoxBounds.begin()+mergeFrom);
+                    }
+                }
+
+                //no intersections found
+                if (!intersectionFound) {
+                    int curSize = intersectionGroups.size();
+                    intersectionGroups.resize(curSize+1);
+                    intersectionGroups[curSize].push_back(curRect);
+                    finalBoxBounds.push_back(std::pair<Point2i, Point2i>(curRect.tl(), curRect.br()));
+                }
           }
-
-          for (int i = 0; i < boundRects.size(); i++) {
-              rectangle(scaledImage, boundRects[i], Scalar(0, 255,0), 2);
+            std::cout << finalBoxBounds.size() <<std::endl;
+          for (int i = 0; i < finalBoxBounds.size(); i++) {
+              rectangle(scaledImage, Rect(finalBoxBounds[i].first, finalBoxBounds[i].second), Scalar(0, 255,0), 2);
           }
     }
 
