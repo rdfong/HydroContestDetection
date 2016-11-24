@@ -548,32 +548,35 @@ void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
     dis_image = result;
 }
 
+template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {
+    Mat imValues = im.reshape(0, im.rows*im.cols);
+    Mat flattenedMask = mask.reshape(0, im.rows*im.cols);
+    Mat idx;
+    findNonZero(flattenedMask, idx);
+    nonZeroSubset = Mat::zeros(idx.rows, 1, CV_8U);
+    auto im_it = nonZeroSubset.begin<T>();
+    for (int i = 0; i < idx.rows; i++) {
+        *im_it= imValues.at<T>(idx.at<int>(i, 1), 0);
+        ++im_it;
+    }
+}
+
 
 void customOtsuThreshold(Mat& im) {
     float percent = 1.0;
     int curThresh = 0;
-    Mat imValues = im.reshape(0, im.rows*im.cols);
-    Mat threshed = Mat::ones(imValues.rows,1, CV_8U);
-
+    Mat threshed = Mat::ones(im.rows, im.cols, CV_8U);
 
     while (percent > .25 && curThresh <= 255) {
-        Mat idx, temp;
-        findNonZero(threshed, idx);
-        Mat nonZeroSubset = Mat::zeros(idx.rows, 1, CV_8U);
-        auto im_it = nonZeroSubset.begin<unsigned char>();
-        for (int i = 0; i < idx.rows; i++) {
-            *im_it= imValues.at<unsigned char>(idx.at<int>(i, 1), 0);
-            ++im_it;
-        }
-
+        Mat temp, nonZeroSubset;
+        getNonZeroPix<unsigned char>(threshed, im, nonZeroSubset);
         int newThresh = (int)threshold(nonZeroSubset, temp, 0, 255, THRESH_OTSU);
         if (curThresh == newThresh)
             curThresh = 256;
         else {
             curThresh = newThresh;
-
         }
-        threshed.setTo(0, imValues < curThresh);
+        threshed.setTo(0, im < curThresh);
         int countWhite = sum(threshed).val[0];
         percent = (float)countWhite/(im.rows*im.cols);
     }
@@ -586,7 +589,7 @@ int main(int argc, char *argv[])
 {
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/boat2.JPG", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/03.JPG", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
@@ -629,12 +632,31 @@ int main(int argc, char *argv[])
     //-----------------------------------------------------------------
 
 
+    //SETUP FOR MST
     vNodes.resize(scaledImage.rows*scaledImage.cols);//should only ever call thisonce
     createVertexGrid(scaledImage.rows, scaledImage.cols);
     initializeDiffBins();
 
     cvtColor(scaledImage, gray_image, CV_BGR2GRAY );
+    //-------------------------------------------------------------------
 
+    //SETUP FOR BOX SELECTION
+    int imgCount = 1;
+    int dims = 3;
+    const int sizes[] = {64,64,64};
+    const int channels[] = {0,1,2};
+    float rRange[] = {0,256};
+    float gRange[] = {0,256};
+    float bRange[] = {0,256};
+    const float *ranges[] = {rRange,gRange,bRange};
+    Mat mask = Mat();
+    vector<vector<Point> > contours;
+    vector<Vec4i> hierarchy;
+    vector<Rect> boundRects;
+    Mat hist1, temp1, hist2, temp2, mean, std, nonZeroSubset;
+    Mat bgr[3];
+    Rect curRect, otherRect, intersection;
+    //-----------------------------------------------------------------
      int64 t1 = getTickCount();
      //TODO: this is a trade off, smaller farther away objects get fucked, maybe the solution is to not use this and have better background seeds
      GaussianBlur(gray_image, gray_image, Size(3, 3), 1);
@@ -697,46 +719,92 @@ int main(int argc, char *argv[])
       combined*=255;
       combined.convertTo(combined, CV_8U);
 
-  //  threshold(combined, combined, 0, 255, THRESH_OTSU);
+    //threshold(combined, combined, 0, 255, THRESH_OTSU);
     customOtsuThreshold(combined);
    //adaptiveThreshold(combined, combined, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0);
 
 
-    //TODO: std test may benefit from testing on expanded rect boxes
+    //todo: play with bounding box expansion after wards again
     if (maxVal-minVal > 0.75) {
-            vector<vector<Point> > contours;
-            vector<Vec4i> hierarchy;
           findContours( combined.clone(), contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
-          vector<Rect> boundRect;
-          for( int i = 0; i < contours.size(); i++ )
-          {
+          //get bounding rects from contours
+          int expand = 3;
+          for (int i =0; i < contours.size(); i++) {
               Rect curRect = boundingRect(contours[i]);
-              bool isContained = false;
-              for (int j = 0; j < contours.size(); j++) {
-                  if (i==j) continue;
-                  Rect otherRect = boundingRect(contours[j]);
-                  Point tl = curRect.tl();
-                  tl.x += 1;
-                  tl.y += 1;
-                  Point br = curRect.br();
-                  br.x -= 1;
-                  br.y -= 1;
-                  if (otherRect.contains(tl) && otherRect.contains(br)) {
-                      isContained = true;
+              meanStdDev(rawCombined(curRect), mean, std);
+              if (std.at<double>(0,0) >= 0.1 && curRect.area() < (.5*combined.rows*combined.cols) && curRect.area() > 50) {
+                  Point2i newTL(max(curRect.tl().x-expand, 0), max(curRect.tl().y-expand,0));
+                  Point2i newBR(min(curRect.br().x+expand, combined.cols-expand), min(curRect.br().y+expand,combined.rows-3));
+                  curRect = Rect(newTL, newBR);
+                  boundRects.push_back(curRect);
+              }
+          }
+
+          //deal with box intersections
+          for( int i = 0; i < boundRects.size(); i++ )
+          {
+              curRect = boundRects[i];
+              for (int j = 0; j < boundRects.size(); j++) {
+                  otherRect = boundRects[j];
+                  if (curRect == otherRect)
+                      continue;
+                  intersection = curRect & otherRect;
+                  if (intersection.area() == curRect.area()) {
+                      //bounding rect is contained, erase it and decrement counter
+                      boundRects.erase(boundRects.begin()+i);
+                      i--;
+                      break;
+                  } else if (intersection.area() > 0) {
+                      //try to merge rectangles
+                      Mat mask1, mask2;
+
+                      combined(curRect).copyTo(mask1);
+                      temp1 = image(curRect);
+                      split(temp1, bgr);
+                      getNonZeroPix<unsigned char>(mask1, bgr[0], bgr[0]);
+                      getNonZeroPix<unsigned char>(mask1, bgr[1], bgr[1]);
+                      getNonZeroPix<unsigned char>(mask1, bgr[2], bgr[2]);
+                      std::vector<Mat> input(3);
+                      input[2] = bgr[2];
+                      input[1] = bgr[1];
+                      input[0] = bgr[0];
+                      nonZeroSubset = Mat::zeros(bgr[0].rows, bgr[0].cols, CV_8U);
+                      cv::merge(input, nonZeroSubset);
+                      calcHist(&nonZeroSubset, imgCount, channels, Mat(), hist1, dims, sizes, ranges);
+                      normalize( hist1, hist1);
+
+                      combined(otherRect).copyTo(mask2);
+                      temp2 = image(otherRect);
+                      split(temp2, bgr);
+                      getNonZeroPix<unsigned char>(mask2, bgr[0], bgr[0]);
+                      getNonZeroPix<unsigned char>(mask2, bgr[1], bgr[1]);
+                      getNonZeroPix<unsigned char>(mask2, bgr[2], bgr[2]);
+                      input[2] = bgr[2];
+                      input[1] = bgr[1];
+                      input[0] = bgr[0];
+                      nonZeroSubset = Mat::zeros(bgr[0].rows, bgr[0].cols, CV_8U);
+                      cv::merge(input, nonZeroSubset);
+                      calcHist(&nonZeroSubset, imgCount, channels, Mat(), hist2, dims, sizes, ranges);
+                      normalize( hist2, hist2);
+
+                      double val = compareHist(hist1, hist2, CV_COMP_INTERSECT);
+
+                      //std::cout << val << std::endl;
+                      if (val < 2.0) {
+                         //merge curRect with otherRect
+                          Point2i tl(min(curRect.tl().x, otherRect.tl().x), min(curRect.tl().y, otherRect.tl().y));
+                          Point2i br(max(curRect.br().x, otherRect.br().x), max(curRect.br().y, otherRect.br().y));
+                          boundRects[j] = Rect(tl,br);
+                          boundRects.erase(boundRects.begin()+i);
+                          i--;
+                      }
                       break;
                   }
               }
+          }
 
-              Mat mean, std;
-              meanStdDev(rawCombined(curRect), mean, std);
-              if (!isContained && std.at<double>(0,0) >= 0.1 && curRect.area() < (.2*combined.rows*combined.cols) && curRect.area() > 50) {
-                curRect.width += 6;
-                curRect.height += 6;
-                curRect.x = max(curRect.x-3, 0);
-                curRect.y = max(curRect.y-3, 0);
-                boundRect.push_back(curRect);
-                rectangle(scaledImage, curRect, Scalar(0, 255,0), 1);
-              }
+          for (int i = 0; i < boundRects.size(); i++) {
+              rectangle(scaledImage, boundRects[i], Scalar(0, 255,0), 2);
           }
     }
 
