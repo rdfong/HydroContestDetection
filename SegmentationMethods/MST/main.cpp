@@ -600,7 +600,7 @@ int main(int argc, char *argv[])
     //approximate size, 900 by 600
     float scale = 1.0;
     Size size(scale*image.cols, scale*image.rows);
-    Mat scaledImage, gray_image, lab, mbd_image, dis_image, new_dis_image, combined, combined8, intermediate;
+    Mat scaledImage, gray_image, lab, mbd_image, dis_image, new_dis_image, combined, rawCombined, intermediate;
 
     resize(image, scaledImage, size);
 
@@ -656,6 +656,10 @@ int main(int argc, char *argv[])
     Mat hist1, temp1, hist2, temp2, mean, std, nonZeroSubset;
     Mat bgr[3];
     Rect curRect, otherRect, intersection;
+    std::vector<std::vector<Rect> > intersectionGroups;
+    std::vector<std::pair<Point2i, Point2i> > finalBoxBounds;
+     std::vector<Mat> input(3);
+     std::vector<int> groupsToMerge;
     //-----------------------------------------------------------------
      int64 t1 = getTickCount();
      //TODO: this is a trade off, smaller farther away objects get fucked, maybe the solution is to not use this and have better background seeds
@@ -697,7 +701,6 @@ int main(int argc, char *argv[])
 
    cv::threshold(frei_image, frei_image, 0.1, 1.0, THRESH_BINARY);*/
 
-     Mat rawCombined;
      //combine images
      rawCombined = mbd_image + new_dis_image;
 
@@ -721,10 +724,8 @@ int main(int argc, char *argv[])
 
     //threshold(combined, combined, 0, 255, THRESH_OTSU);
     customOtsuThreshold(combined);
-   //adaptiveThreshold(combined, combined, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0);
 
 
-    //todo: play with bounding box expansion after wards again
     if (maxVal-minVal > 0.75) {
           findContours( combined.clone(), contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
           //get bounding rects from contours
@@ -735,19 +736,18 @@ int main(int argc, char *argv[])
               if (std.at<double>(0,0) >= 0.1 && curRect.area() < (.5*combined.rows*combined.cols) && curRect.area() > 50) {
                   Point2i newTL(max(curRect.tl().x-expand, 0), max(curRect.tl().y-expand,0));
                   Point2i newBR(min(curRect.br().x+expand, combined.cols-expand), min(curRect.br().y+expand,combined.rows-3));
-                  curRect = Rect(newTL, newBR);
-                  boundRects.push_back(curRect);
+                  boundRects.push_back(Rect(newTL, newBR));
               }
           }
 
-          std::vector<std::vector<Rect> > intersectionGroups;
-          std::vector<std::pair<Point2i, Point2i> > finalBoxBounds;
+          intersectionGroups.clear();
+          finalBoxBounds.clear();
 
           for (int k = 0; k < boundRects.size(); k++) {
                 curRect = boundRects[k];
                 bool intersectionFound = false;
 
-                std::vector<int> groupsToMerge;
+                groupsToMerge.clear();
                 //check for intersections
                 for (int i = 0; i < intersectionGroups.size(); i++) {
                     for (int j = 0; j < intersectionGroups[i].size(); j++) {
@@ -770,7 +770,6 @@ int main(int argc, char *argv[])
                             getNonZeroPix<unsigned char>(mask1, bgr[0], bgr[0]);
                             getNonZeroPix<unsigned char>(mask1, bgr[1], bgr[1]);
                             getNonZeroPix<unsigned char>(mask1, bgr[2], bgr[2]);
-                            std::vector<Mat> input(3);
                             input[2] = bgr[2];
                             input[1] = bgr[1];
                             input[0] = bgr[0];
@@ -797,9 +796,6 @@ int main(int argc, char *argv[])
                             //std::cout << val << std::endl;
                             if (val < 2.0) {
                                //merge curRect with otherRect
-                                Point2i tl(min(curRect.tl().x, otherRect.tl().x), min(curRect.tl().y, otherRect.tl().y));
-                                Point2i br(max(curRect.br().x, otherRect.br().x), max(curRect.br().y, otherRect.br().y));
-
                                 intersectionGroups[i].push_back(curRect);
                                 finalBoxBounds[i].first = Point2i(min(finalBoxBounds[i].first.x, curRect.tl().x), min(finalBoxBounds[i].first.y, curRect.tl().y));
                                 finalBoxBounds[i].second = Point2i(max(finalBoxBounds[i].second.x, curRect.br().x), max(finalBoxBounds[i].second.y, curRect.br().y));
@@ -836,7 +832,6 @@ int main(int argc, char *argv[])
                     finalBoxBounds.push_back(std::pair<Point2i, Point2i>(curRect.tl(), curRect.br()));
                 }
           }
-            std::cout << finalBoxBounds.size() <<std::endl;
           for (int i = 0; i < finalBoxBounds.size(); i++) {
               rectangle(scaledImage, Rect(finalBoxBounds[i].first, finalBoxBounds[i].second), Scalar(0, 255,0), 2);
           }
