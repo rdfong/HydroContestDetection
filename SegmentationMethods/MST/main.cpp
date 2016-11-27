@@ -589,7 +589,7 @@ int main(int argc, char *argv[])
 {
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/99.jpg", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/frame.png", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
@@ -655,7 +655,7 @@ int main(int argc, char *argv[])
     vector<Rect> boundRects;
     Mat hist1, temp1, hist2, temp2, mean, std, nonZeroSubset;
     Mat bgr[3];
-    Rect curRect, otherRect, intersection;
+    Rect curRect, otherRect, intersection, rectUnion;
     std::vector<std::vector<Rect> > intersectionGroups;
     std::vector<std::pair<Point2i, Point2i> > finalBoxBounds;
      std::vector<Mat> input(3);
@@ -765,6 +765,7 @@ int main(int argc, char *argv[])
                             groupsToMerge.push_back(i);
                             break;
                         } else if (intersection.area() > 0) {
+                            //COLOR SIMILARITY MEASURE
                             Mat mask1, mask2;
                             combined(curRect).copyTo(mask1);
                             temp1 = image(curRect);
@@ -775,10 +776,10 @@ int main(int argc, char *argv[])
                             input[2] = bgr[2];
                             input[1] = bgr[1];
                             input[0] = bgr[0];
-                            nonZeroSubset = Mat::zeros(bgr[0].rows, bgr[0].cols, CV_8U);
                             cv::merge(input, nonZeroSubset);
                             calcHist(&nonZeroSubset, imgCount, channels, Mat(), hist1, dims, sizes, ranges);
                             normalize( hist1, hist1);
+                            int numPix1 = nonZeroSubset.rows;
 
                             combined(otherRect).copyTo(mask2);
                             temp2 = image(otherRect);
@@ -789,14 +790,19 @@ int main(int argc, char *argv[])
                             input[2] = bgr[2];
                             input[1] = bgr[1];
                             input[0] = bgr[0];
-                            nonZeroSubset = Mat::zeros(bgr[0].rows, bgr[0].cols, CV_8U);
                             cv::merge(input, nonZeroSubset);
                             calcHist(&nonZeroSubset, imgCount, channels, Mat(), hist2, dims, sizes, ranges);
                             normalize( hist2, hist2);
+                            int numPix2 = nonZeroSubset.rows;
+                            double colorSim = compareHist(hist1, hist2, CV_COMP_INTERSECT);
+                            //std::cout << colorSim << std::endl;
 
-                            double val = compareHist(hist1, hist2, CV_COMP_INTERSECT);
-                            //std::cout << val << std::endl;
-                            if (val < 2.0) {
+                            // SIZE SIMILARITY MEASURE - current is used if it improves the average fill of the separated boxes
+                            rectUnion = curRect | otherRect;
+                            double sizeSim = 1.0 - ((double)rectUnion.area() - numPix1 - numPix2)/(rectUnion.area());
+                            std::cout << sizeSim << std::endl;
+
+                            if (colorSim < 2.0 || sizeSim > 0.5) {
                                //merge curRect with otherRect
                                 intersectionGroups[i].push_back(curRect);
                                 finalBoxBounds[i].first = Point2i(min(finalBoxBounds[i].first.x, curRect.tl().x), min(finalBoxBounds[i].first.y, curRect.tl().y));
