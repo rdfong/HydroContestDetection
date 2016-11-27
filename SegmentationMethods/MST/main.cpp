@@ -589,7 +589,7 @@ int main(int argc, char *argv[])
 {
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/03.JPG", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/99.jpg", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
@@ -727,17 +727,19 @@ int main(int argc, char *argv[])
 
 
     if (maxVal-minVal > 0.75) {
+          contours.clear();
+          boundRects.clear();
           findContours( combined.clone(), contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
           //get bounding rects from contours
           int expand = 3;
           for (int i =0; i < contours.size(); i++) {
               Rect curRect = boundingRect(contours[i]);
               meanStdDev(rawCombined(curRect), mean, std);
-              if (std.at<double>(0,0) >= 0.1 && curRect.area() < (.5*combined.rows*combined.cols) && curRect.area() > 50) {
-                  Point2i newTL(max(curRect.tl().x-expand, 0), max(curRect.tl().y-expand,0));
-                  Point2i newBR(min(curRect.br().x+expand, combined.cols-expand), min(curRect.br().y+expand,combined.rows-3));
-                  boundRects.push_back(Rect(newTL, newBR));
-              }
+              if ((std.at<double>(0,0) < 0.1 && curRect.area() >= (.25*combined.rows*combined.cols)) || curRect.area() <= 25)
+                  continue;
+              Point2i newTL(max(curRect.tl().x-expand, 0), max(curRect.tl().y-expand,0));
+              Point2i newBR(min(curRect.br().x+expand, combined.cols-expand), min(curRect.br().y+expand,combined.rows-3));
+              boundRects.push_back(Rect(newTL, newBR));
           }
 
           intersectionGroups.clear();
@@ -833,7 +835,9 @@ int main(int argc, char *argv[])
                 }
           }
           for (int i = 0; i < finalBoxBounds.size(); i++) {
-              rectangle(scaledImage, Rect(finalBoxBounds[i].first, finalBoxBounds[i].second), Scalar(0, 255,0), 2);
+              curRect = Rect(finalBoxBounds[i].first, finalBoxBounds[i].second);
+              if (curRect.area() > 100)
+                rectangle(scaledImage, Rect(finalBoxBounds[i].first, finalBoxBounds[i].second), Scalar(0, 255,0), 2);
           }
     }
 
