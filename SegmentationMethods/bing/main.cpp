@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
 {
 #if VIDEO == 0
     Mat image;
-    image = imread("../smallmedia/boat1.png", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/japtest.JPG", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
     //Start BINGness here
     cv::saliency::ObjectnessBING objProposal;
 
-    string training_path = "../bing/ObjectnessTrainedModel";
+    string training_path = "../../SegmentationMethods/bing/ObjectnessTrainedModel";
 
         vector<Vec4i> saliencyMap;
         objProposal.setTrainingPath(training_path);
@@ -49,33 +49,32 @@ int main(int argc, char *argv[])
         int64 t2 = getTickCount();
         std::cout << (t2 - t1)/getTickFrequency() << std::endl;
 
-        for (int i = 0; i < std::min<int>(saliencyMap.size(), 100); i++)
+        Mat si = scaledImage.clone();
+        for (int i = 0; i < std::min<int>(saliencyMap.size(), 10); i++)
         {
-            Mat si = scaledImage.clone();
             rectangle(si, Point(saliencyMap[i][0], saliencyMap[i][1]), Point(saliencyMap[i][2], saliencyMap[i][3]), Scalar(255, 0, 0));
-            imshow("object proposals", si);
-            waitKey(0);
         }
 
-
+       imshow("object proposals", si);
        waitKey(0);
 #elif VIDEO == 1
-       VideoCapture cap("../media/boatm10.mp4"); // open the default camera
+       VideoCapture cap("../../TestMedia/videos/boatm10.mp4"); // open the default camera
        if(!cap.isOpened()) {  // check if we succeeded
            std::cout << "no vid" << std::endl;
            return -1;
        }
 
        int framecounter = 0;
-       /* cv::saliency::ObjectnessBING objProposal;
-       string training_path = "../bing/ObjectnessTrainedModel";
+       cv::saliency::ObjectnessBING objProposal;
+       string training_path = "../../SegmentationMethods/bing/ObjectnessTrainedModel";
 
+       vector<Vec4i> saliencyMap;
         objProposal.setTrainingPath(training_path);
 
         // display some information about BING
         std:cout << "getBase() " << objProposal.getBase() << endl;
         cout << "getNSS() " << objProposal.getNSS() << endl;
-        cout << "getW() " << objProposal.getW() << endl;*/
+        cout << "getW() " << objProposal.getW() << endl;
 
        for(;;)
        {
@@ -84,22 +83,23 @@ int main(int argc, char *argv[])
            if (frame.rows == 0 || frame.cols == 0)
                continue;
            int64 t2 = getTickCount();
-           /*float scale = 1.0;
-           Size size(scale*image.cols, scale*image.rows);
+           float scale = 0.5;
+           Size size(scale*frame.cols, scale*frame.rows);
            Mat scaledImage;
-           resize(image, scaledImage, size);*/
+           resize(frame, scaledImage, size);
           //  vector<Vec4i> saliencyMap;
            objProposal.computeSaliency(scaledImage, saliencyMap);
 
            //std::cout << (t2 - t1)/getTickFrequency() << std::endl;
 
-          /* for (int i = 0; i < std::min<int>(saliencyMap.size(), 10); i++)
+           for (int i = 0; i < std::min<int>(saliencyMap.size(), 30); i++)
            {
                rectangle(scaledImage, Point(saliencyMap[i][0], saliencyMap[i][1]), Point(saliencyMap[i][2], saliencyMap[i][3]), Scalar(255, 0, 0));
-           }*/
+           }
 
-           imshow("bing", frame);
+           imshow("bing", scaledImage);
            framecounter++;
+           waitKey(10);
        }
 
 #endif
