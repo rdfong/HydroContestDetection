@@ -594,11 +594,14 @@ int main(int argc, char *argv[])
 #if VIDEO == 0
     std::cout << "Path name: " << argv[1] <<std::endl;
     std::cout << "Image name: " << argv[2] <<std::endl;
+    std::cout << "Output folder: " << argv[3] <<std::endl;
     string name(argv[2]);
+    string output(argv[3]);
+    string wait(argv[4]);
     Mat image;
     //const char* name = (const char *)argv[2];
     image = imread(strcat(argv[1], (const char*)name.c_str()), CV_LOAD_IMAGE_COLOR);
-    scoreFile.open(strcat((char *)name.data(),".txt"));
+    scoreFile.open(strcat(argv[3],strcat((char *)name.data(),".txt")));
     if (!image.data)
     {
         printf("No image data \n");
@@ -856,8 +859,8 @@ int main(int argc, char *argv[])
                 scoreFile << "other\n" << finalBoxBounds[i].first.x << " " << finalBoxBounds[i].first.y << " "
                                     << finalBoxBounds[i].second.x << " " << finalBoxBounds[i].second.y <<std::endl;
           }
-          std::cout << string(name) << std::endl;
-          imwrite(string(name), scaledImage);
+
+          imwrite(output+name, scaledImage);
     }
 
      int64 t2 = getTickCount();
@@ -870,7 +873,8 @@ int main(int argc, char *argv[])
 
     scoreFile.close();
     //visualizeMST(gray_image);
-    waitKey(0);
+    if (wait == "WAIT")
+        waitKey(0);
 #elif VIDEO == 1
        VideoCapture cap("../media/blank.mp4"); // open the default camera
        if(!cap.isOpened()) {  // check if we succeeded
