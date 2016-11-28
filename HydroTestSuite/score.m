@@ -1,9 +1,9 @@
-input_box = './proposals/';
+input_proposal = './proposals/';
 input_annotation = './annotations/';
 
 outID = fopen( strcat(datestr(datetime('now')),'results.txt'), 'wt' );
 
-proposals = dir([input_box '*' 'txt']);
+proposals = dir([input_proposal '*' 'txt']);
 
 recallResults = [];
 precisionResults = [];
@@ -16,7 +16,7 @@ for p=1:length(proposals)
     annotationClasses = [];
     
     %Read proposals
-    proposalID = fopen(strcat(input_box,proposals(p).name));
+    proposalID = fopen(strcat(input_proposal,proposals(p).name));
     tline = fgetl(proposalID);
     startBox = true;
     while ischar(tline)
