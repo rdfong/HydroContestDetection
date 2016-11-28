@@ -2,3 +2,6 @@
 **/.DS_Store
 **/*.user
 builds
+HydroTestSuite/proposals/*
+HydroTestSuite/MST
+HydroTestSuite/.DS_Store
