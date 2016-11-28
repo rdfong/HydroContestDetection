@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
 #include "custom_bitset.h"
@@ -47,6 +48,9 @@ std::vector<vNode*> leaves;
 custom_bitset<256> diffMap;
 std::vector<vNode*> diffBins(256);
 std::vector<vNode> dummyNodes;
+
+//score output
+ofstream scoreFile;
 
 void createVertexGrid(int rows, int cols) {
     auto v_col = vNodes.begin();
@@ -588,8 +592,13 @@ void customOtsuThreshold(Mat& im) {
 int main(int argc, char *argv[])
 {
 #if VIDEO == 0
+    std::cout << "Path name: " << argv[1] <<std::endl;
+    std::cout << "Image name: " << argv[2] <<std::endl;
+    string name(argv[2]);
     Mat image;
-    image = imread("../../TestMedia/images/frame.png", CV_LOAD_IMAGE_COLOR);
+    //const char* name = (const char *)argv[2];
+    image = imread(strcat(argv[1], (const char*)name.c_str()), CV_LOAD_IMAGE_COLOR);
+    scoreFile.open(strcat((char *)name.data(),".txt"));
     if (!image.data)
     {
         printf("No image data \n");
@@ -800,7 +809,7 @@ int main(int argc, char *argv[])
                             // SIZE SIMILARITY MEASURE - current is used if it improves the average fill of the separated boxes
                             rectUnion = curRect | otherRect;
                             double sizeSim = 1.0 - ((double)rectUnion.area() - numPix1 - numPix2)/(rectUnion.area());
-                            std::cout << sizeSim << std::endl;
+                           // std::cout << sizeSim << std::endl;
 
                             if (colorSim < 2.0 || sizeSim > 0.5) {
                                //merge curRect with otherRect
@@ -844,7 +853,11 @@ int main(int argc, char *argv[])
               curRect = Rect(finalBoxBounds[i].first, finalBoxBounds[i].second);
               if (curRect.area() > 100)
                 rectangle(scaledImage, Rect(finalBoxBounds[i].first, finalBoxBounds[i].second), Scalar(0, 255,0), 2);
+                scoreFile << "other\n" << finalBoxBounds[i].first.x << " " << finalBoxBounds[i].first.y << " "
+                                    << finalBoxBounds[i].second.x << " " << finalBoxBounds[i].second.y <<std::endl;
           }
+          std::cout << string(name) << std::endl;
+          imwrite(string(name), scaledImage);
     }
 
      int64 t2 = getTickCount();
@@ -855,6 +868,7 @@ int main(int argc, char *argv[])
     imshow("final result", scaledImage);
     std::cout << "PER FRAME TIME: " << (t2 - t1)/getTickFrequency() << std::endl;
 
+    scoreFile.close();
     //visualizeMST(gray_image);
     waitKey(0);
 #elif VIDEO == 1
