@@ -854,10 +854,11 @@ int main(int argc, char *argv[])
           }
           for (int i = 0; i < finalBoxBounds.size(); i++) {
               curRect = Rect(finalBoxBounds[i].first, finalBoxBounds[i].second);
-              if (curRect.area() > 100)
+              if (curRect.area() > 100) {
                 rectangle(scaledImage, Rect(finalBoxBounds[i].first, finalBoxBounds[i].second), Scalar(0, 255,0), 2);
-                scoreFile << "other\n" << finalBoxBounds[i].first.x << " " << finalBoxBounds[i].first.y << " "
-                                    << finalBoxBounds[i].second.x << " " << finalBoxBounds[i].second.y <<std::endl;
+                scoreFile << "other\n" << curRect.tl().x << " " << curRect.tl().y << " "
+                                    << curRect.width << " " << curRect.height <<std::endl;
+              }
           }
 
           imwrite(output+name, scaledImage);
