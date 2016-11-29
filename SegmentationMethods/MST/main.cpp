@@ -665,9 +665,10 @@ int main(int argc, char *argv[])
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
     vector<Rect> boundRects;
+    vector<Rect> originalRects;
     Mat hist1, temp1, hist2, temp2, mean, std, nonZeroSubset;
     Mat bgr[3];
-    Rect curRect, otherRect, intersection, rectUnion;
+    Rect curRect, otherRect, originalRect, intersection, rectUnion;
     std::vector<std::vector<Rect> > intersectionGroups;
     std::vector<std::pair<Point2i, Point2i> > finalBoxBounds;
      std::vector<Mat> input(3);
@@ -745,22 +746,24 @@ int main(int argc, char *argv[])
           //get bounding rects from contours
           int expand = 3;
           for (int i =0; i < contours.size(); i++) {
-              Rect curRect = boundingRect(contours[i]);
+              curRect = boundingRect(contours[i]);
               meanStdDev(rawCombined(curRect), mean, std);
               if ((std.at<double>(0,0) < 0.1 && curRect.area() >= (.25*combined.rows*combined.cols)) || curRect.area() <= 25)
                   continue;
               Point2i newTL(max(curRect.tl().x-expand, 0), max(curRect.tl().y-expand,0));
               Point2i newBR(min(curRect.br().x+expand, combined.cols-expand), min(curRect.br().y+expand,combined.rows-3));
               boundRects.push_back(Rect(newTL, newBR));
+              originalRects.push_back(curRect);
           }
 
+          //intersection groups mirros finalboxbounds in size, but final box bounds contains information on originalRects, intersection groups is for the expanded rects
           intersectionGroups.clear();
           finalBoxBounds.clear();
 
           for (int k = 0; k < boundRects.size(); k++) {
                 curRect = boundRects[k];
+                originalRect = originalRects[k];
                 bool intersectionFound = false;
-
                 groupsToMerge.clear();
                 //check for intersections
                 for (int i = 0; i < intersectionGroups.size(); i++) {
@@ -770,8 +773,8 @@ int main(int argc, char *argv[])
                         //one is contained by the other
                         if (intersection.area() == curRect.area() || intersection.area() == otherRect.area()) {
                             intersectionGroups[i].push_back(curRect);
-                            finalBoxBounds[i].first = Point2i(min(finalBoxBounds[i].first.x, curRect.tl().x), min(finalBoxBounds[i].first.y, curRect.tl().y));
-                            finalBoxBounds[i].second = Point2i(max(finalBoxBounds[i].second.x, curRect.br().x), max(finalBoxBounds[i].second.y, curRect.br().y));
+                            finalBoxBounds[i].first = Point2i(min(finalBoxBounds[i].first.x, originalRect.tl().x), min(finalBoxBounds[i].first.y, originalRect.tl().y));
+                            finalBoxBounds[i].second = Point2i(max(finalBoxBounds[i].second.x, originalRect.br().x), max(finalBoxBounds[i].second.y, originalRect.br().y));
                             //multiple intersecting groups may be found, need to find out what to merge
                             intersectionFound = true;
                             groupsToMerge.push_back(i);
@@ -817,8 +820,8 @@ int main(int argc, char *argv[])
                             if (colorSim < 2.0 || sizeSim > 0.5) {
                                //merge curRect with otherRect
                                 intersectionGroups[i].push_back(curRect);
-                                finalBoxBounds[i].first = Point2i(min(finalBoxBounds[i].first.x, curRect.tl().x), min(finalBoxBounds[i].first.y, curRect.tl().y));
-                                finalBoxBounds[i].second = Point2i(max(finalBoxBounds[i].second.x, curRect.br().x), max(finalBoxBounds[i].second.y, curRect.br().y));
+                                finalBoxBounds[i].first = Point2i(min(finalBoxBounds[i].first.x, originalRect.tl().x), min(finalBoxBounds[i].first.y, originalRect.tl().y));
+                                finalBoxBounds[i].second = Point2i(max(finalBoxBounds[i].second.x, originalRect.br().x), max(finalBoxBounds[i].second.y, originalRect.br().y));
 
                                 intersectionFound = true;
                                 groupsToMerge.push_back(i);
@@ -849,7 +852,7 @@ int main(int argc, char *argv[])
                     int curSize = intersectionGroups.size();
                     intersectionGroups.resize(curSize+1);
                     intersectionGroups[curSize].push_back(curRect);
-                    finalBoxBounds.push_back(std::pair<Point2i, Point2i>(curRect.tl(), curRect.br()));
+                    finalBoxBounds.push_back(std::pair<Point2i, Point2i>(originalRect.tl(), originalRect.br()));
                 }
           }
           for (int i = 0; i < finalBoxBounds.size(); i++) {
