@@ -676,7 +676,7 @@ int main(int argc, char *argv[])
     //-----------------------------------------------------------------
      int64 t1 = getTickCount();
      //TODO: this is a trade off, smaller farther away objects get fucked, maybe the solution is to not use this and have better background seeds
-     GaussianBlur(gray_image, gray_image, Size(3, 3), 1);
+     GaussianBlur(gray_image, gray_image, Size(5, 5), 3);
      //more blur deals with open water better...
      // GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
     // GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
@@ -688,7 +688,7 @@ int main(int argc, char *argv[])
      passDown();
 
      cvtColor(scaledImage, lab, CV_BGR2Lab);
-     int boundary_size = 10;
+     int boundary_size = 20;
      int num_boundary_pixels = (boundary_size*2*(gray_image.cols+gray_image.rows)-4*boundary_size*boundary_size);
      std::vector<cv::Point3f> boundaryPixels(num_boundary_pixels);
      mbd_image = Mat::zeros(gray_image.rows, gray_image.cols, CV_32FC1);
@@ -696,9 +696,9 @@ int main(int argc, char *argv[])
 
      dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
      getDissimiliarityImage(boundaryPixels, lab, dis_image);
-     treeFilter(dis_image, mbd_image, 3, 0.5);
+     treeFilter(dis_image, mbd_image, 5, 0.5);
      new_dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
-     bilateralFilter(dis_image, new_dis_image, 3, 0.5, 0.5);
+     bilateralFilter(dis_image, new_dis_image, 5, 0.5, 0.5);
 
      //FREICHEN: CONCLUSION: ONLY USE FOR TRACKING, STILL PRODUCES TOO MUCH NOISE IN WATER
     /* gray_image.convertTo(gray_image, CV_32F);
@@ -735,7 +735,6 @@ int main(int argc, char *argv[])
       combined*=255;
       combined.convertTo(combined, CV_8U);
 
-    //threshold(combined, combined, 0, 255, THRESH_OTSU);
     customOtsuThreshold(combined);
 
 
@@ -751,7 +750,7 @@ int main(int argc, char *argv[])
               if ((std.at<double>(0,0) < 0.1 && curRect.area() >= (.25*combined.rows*combined.cols)) || curRect.area() <= 25)
                   continue;
               Point2i newTL(max(curRect.tl().x-expand, 0), max(curRect.tl().y-expand,0));
-              Point2i newBR(min(curRect.br().x+expand, combined.cols-expand), min(curRect.br().y+expand,combined.rows-3));
+              Point2i newBR(min(curRect.br().x+expand, combined.cols-expand), min(curRect.br().y+expand,combined.rows-expand));
               boundRects.push_back(Rect(newTL, newBR));
               originalRects.push_back(curRect);
           }
