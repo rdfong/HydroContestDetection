@@ -4,7 +4,7 @@
 
 using namespace cv;
 
-#define VIDEO 0
+#define VIDEO 1
 
 int main(int argc, char *argv[])
 {
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
        std::cout << (t2 - t1)/getTickFrequency() << std::endl;
        waitKey(0);
 #elif VIDEO == 1
-       VideoCapture cap("../media/boatm10.mp4"); // open the default camera
+       VideoCapture cap("../../TestMedia/videos/boatm30.mp4"); // open the default camera
        if(!cap.isOpened()) {  // check if we succeeded
            std::cout << "no vid" << std::endl;
            return -1;
