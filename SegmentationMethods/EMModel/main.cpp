@@ -84,11 +84,10 @@ void initializePriorsAndPosteriorStructures(Mat image) {
     invert(positionCovPriors[0], ipositionCovPriors[0]);
     invert(positionCovPriors[1], ipositionCovPriors[1]);
     invert(positionCovPriors[2], ipositionCovPriors[2]);
-    uniformComponent = 1.0/(image.rows*image.cols*pow(255,3)) *.001;
+    uniformComponent = 1.0/(image.rows*image.cols*10988544.0)*0.001;
 }
 
 void initializeLabelPriors(Mat image) {
-    int size = image.rows * image.cols;
     //from their implementation for ycrcb
     double gaussianComponent = (1.0-uniformComponent)/3.0;
     for (int row = 0; row < image.rows; row++) {
@@ -249,23 +248,64 @@ void updateGaussianParameters(Mat image) {
     }
 }
 
-void drawMapping(Mat image) {
-    Mat newImage = image.clone();
+void findShoreLine(Mat coloredImage, std::map<int, int>& shoreLine, bool display) {
+    float areaRatioLimit = 0.1;
+    cv::Scalar lowerb = cv::Scalar(0,0,0);
+    cv::Scalar upperb = cv::Scalar(255,0,0);
+    Mat mask;
+    cv::inRange(coloredImage, lowerb, upperb, mask);
+    Mat labels;
+    Mat stats;
+    Mat centroids;
+    int connectedCount = cv::connectedComponentsWithStats(mask, labels, stats, centroids);
+    Mat waterBinary = Mat::zeros(mask.rows, mask.cols, CV_8U);
+    for (int label = 0; label < connectedCount; label++) {
+        Mat temp;
+        int area = stats.at<int>(label, CC_STAT_AREA);
+        if ((float)area/(mask.rows * mask.cols) > areaRatioLimit) {
+            cv::inRange(labels, Scalar(label), Scalar(label), temp);
+            add(waterBinary, temp, waterBinary,mask);
+        }
+    }
+    //TODO: Now draw the line (just for visualization, this should be combined in one loop with object detection)
+    //Anything white component that is above whose lowest pixel starts at the black line or below is considered as an obstacle
+    for (int col = 0; col < waterBinary.cols; col++) {
+        int row;
+        for (row = 0; row < waterBinary.rows; row++) {
+            if (waterBinary.at<uint8_t>(row, col) == 255) {
+                break;
+            }
+        }
+        row = std::max(--row,0);
+        coloredImage.at<Vec3b>(row,col) = Vec3b(0,0,0);
+        shoreLine[col] = row;
+    }
+
+    if (display)
+        imshow("shoreLine", waterBinary);
+}
+
+void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
+    zoneMapping = image.clone();
     for (int i = 0; i < 4; i++) {
         filter2D(posteriorP[i], posteriorP[i], -1, kern2d, Point(-1, -1), 0, BORDER_REPLICATE);
     }
+    obstacleMap = Mat::zeros(zoneMapping.rows, zoneMapping.cols, CV_8U);
     for (int row = 0; row < image.rows; row++) {
         for (int col = 0; col < image.cols; col++) {
             Vec3b color;
             double probability = 0.0;
             int maxIndex = -1;
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 3; i++) {
                 double curProb = posteriorP[i].at<double>(row,col);
                 if (curProb > probability) {
                     probability = curProb;
                     maxIndex = i;
                 }
             }
+            if (posteriorP[3].at<double>(row,col) > probability)
+                obstacleMap.at<unsigned char>(row,col) = 255;
+
             switch(maxIndex) {
             case 0:
                 color = Vec3b(0, 0, 255);
@@ -274,26 +314,59 @@ void drawMapping(Mat image) {
                 color = Vec3b(0, 255, 0);
                 break;
             case 2:
-                color = Vec3b(255, 0, 0);
-                break;
-            case 3:
-                color = Vec3b(255, 255, 255);
+                //if (probability > .995) (choose top 10 in every 100 x 100 ush, with a lower bound
+                 color = Vec3b(255, 0, 0);
                 break;
             }
-            newImage.at<Vec3b>(row,col) = color;
+            zoneMapping.at<Vec3b>(row,col) = color;
         }
     }
 
-    resize(newImage, newImage, Size(image.cols*2, image.rows*2));
-    imshow("final", newImage);
-    waitKey(1);
+    if (display) {
+        imshow("small with obs", obstacleMap);
+        waitKey(1);
+        imshow("small no obs", zoneMapping);
+        waitKey(1);
+    }
+}
+
+void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display) {
+    //simply return any white connected white blobs that are under the zone shift
+    //do it by scanning up, once the line has been passed, switch on a flag such that it tends once the current run ends
+    obstaclesInWater = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);
+
+    Mat labels;
+    Mat stats;
+    Mat centroids;
+    int connectedCount = cv::connectedComponentsWithStats(obstacles, labels, stats, centroids);
+    for (int label = 0; label < connectedCount; label++) {
+         int* statsForLabel = stats.ptr<int>(label);
+         int top = statsForLabel[CC_STAT_TOP];
+         int left = statsForLabel[CC_STAT_LEFT];
+         int width = statsForLabel[CC_STAT_WIDTH];
+         int height = statsForLabel[CC_STAT_HEIGHT];
+         int bottomRow = top+height-1;
+         uint8_t* obsRow = obstacles.ptr<uint8_t>(bottomRow);
+         for (int col = left; col < left+width; col++) {
+             //If any part of the blob is below the shoreLine, consider it a water obstacle
+            if (obsRow[col] == 255 && bottomRow > shoreLine[col]) {
+                Mat temp;
+                cv::inRange(labels, Scalar(label), Scalar(label), temp);
+                add(obstaclesInWater, temp, obstaclesInWater, obstacles);
+                break;
+            }
+         }
+    }
+    if (display)
+        imshow("obs in water", obstaclesInWater);
+
 }
 
 int main(int argc, char *argv[])
 {
 #if VIDEO == 0
     Mat image;
-    image = imread("../../TestMedia/images/57.JPG", CV_LOAD_IMAGE_COLOR);
+    image = imread("../../TestMedia/images/21.jpg", CV_LOAD_IMAGE_COLOR);
     if (!image.data)
     {
         printf("No image data \n");
@@ -301,7 +374,7 @@ int main(int argc, char *argv[])
     }
 
 
-    float scale = .5;
+    float scale = .25;
     Size size(scale*image.cols, scale*image.rows);
     resize(image, image, size);
 
@@ -360,7 +433,17 @@ int main(int argc, char *argv[])
     int64 t2 = getTickCount();
     std::cout << (t2-t1)/getTickFrequency() << std::endl;
     //TODO: optimization of cov update loop, more optimization, eigen to mkl
-    drawMapping(image);
+    Mat zones;
+    Mat obstacles;
+    drawMapping(image, zones, obstacles, true);
+    std::map<int,int> shoreLine;
+    findShoreLine(zones, shoreLine, true);
+    Mat obstaclesInWater;
+    findObstacles(shoreLine, obstacles, obstaclesInWater, true);
+
+    //Mat bigZones;
+    //resize(zones, bigZones, Size(image.cols*4, image.rows*4));
+    //imshow("final", bigZones);
     waitKey(0);
 #elif VIDEO == 1
 
