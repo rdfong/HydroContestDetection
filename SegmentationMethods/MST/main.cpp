@@ -747,10 +747,10 @@ int main(int argc, char *argv[])
           for (int i =0; i < contours.size(); i++) {
               curRect = boundingRect(contours[i]);
               meanStdDev(rawCombined(curRect), mean, std);
-              if ((std.at<double>(0,0) < 0.1 && curRect.area() >= (.25*combined.rows*combined.cols)) || curRect.area() <= 25)
+              if (std.at<double>(0,0) < 0.1 && curRect.area() >= (.25*combined.rows*combined.cols))
                   continue;
               Point2i newTL(max(curRect.tl().x-expand, 0), max(curRect.tl().y-expand,0));
-              Point2i newBR(min(curRect.br().x+expand, combined.cols-expand), min(curRect.br().y+expand,combined.rows-expand));
+              Point2i newBR(min(curRect.br().x+expand, combined.cols-1), min(curRect.br().y+expand,combined.rows-1));
               boundRects.push_back(Rect(newTL, newBR));
               originalRects.push_back(curRect);
           }
@@ -856,7 +856,7 @@ int main(int argc, char *argv[])
           }
           for (int i = 0; i < finalBoxBounds.size(); i++) {
               curRect = Rect(finalBoxBounds[i].first, finalBoxBounds[i].second);
-              if (curRect.area() > 100) {
+              if (curRect.area() > 25) {
                 rectangle(scaledImage, Rect(finalBoxBounds[i].first, finalBoxBounds[i].second), Scalar(0, 255,0), 2);
                 scoreFile << "other\n" << curRect.tl().x << " " << curRect.tl().y << " "
                                     << curRect.width << " " << curRect.height <<std::endl;
