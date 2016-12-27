@@ -8,9 +8,10 @@ waterCoordinates = zeros(5,0);
 for i=75:length(imnames)
     imorig = imread(strcat(input_root,'/',imnames(i).name));
     imorig = imresize(imorig, .25);
-    im = rgb2ycbcr(imorig);
+    im = rgb2hsv(imorig);
     [height, width, dim] = size(im);
     figure, imshow(imorig);
+    im=im*255;
     hold on;
     legend = sprintf('step 1: Draw line below sky\n step 2: Draw line at horizon');
     %Anything above the sky line is sky
