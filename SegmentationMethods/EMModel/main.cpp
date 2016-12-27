@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
+#include <fstream>
 
 using namespace cv;
 
@@ -18,7 +19,7 @@ Mat icovars[3];
 
 //E step update
 Mat imagePriors[3]; //We don't actually need a prior for the uniform component
-Mat oldPosteriorP[4];
+Mat oldPriors[4];
 Mat posteriorP[4];
 Mat posteriorQ[4];
 
@@ -32,59 +33,230 @@ Mat lambda1;
 
 double uniformComponent;
 
+
+//SETUP FOR BOX SELECTION
+int imgCount = 1;
+int dims = 3;
+const int sizes[] = {64,64,64};
+const int channels[] = {0,1,2};
+float rRange[] = {0,256};
+float gRange[] = {0,256};
+float bRange[] = {0,256};
+const float *ranges[] = {rRange,gRange,bRange};
+Mat mask = Mat();
+std::vector<std::vector<Point> > contours;
+std::vector<Vec4i> hierarchy;
+std::vector<Rect> boundRects;
+std::vector<Rect> originalRects;
+Mat hist1, temp1, hist2, temp2, nonZeroSubset;
+Mat bgr[3];
+Rect curRect, otherRect, originalRect, intersection, rectUnion;
+std::vector<std::vector<Rect> > intersectionGroups;
+std::vector<std::pair<Point2i, Point2i> > finalBoxBounds;
+ std::vector<Mat> input(3);
+ std::vector<int> groupsToMerge;
+
+ //File setup
+ std::ofstream scoreFile;
+ std::string name;
+ std::string output;
+ std::string waitString;
+
+ template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {
+     Mat imValues = im.reshape(0, im.rows*im.cols);
+     Mat flattenedMask = mask.reshape(0, im.rows*im.cols);
+     Mat idx;
+     findNonZero(flattenedMask, idx);
+     nonZeroSubset = Mat::zeros(idx.rows, 1, CV_8U);
+     auto im_it = nonZeroSubset.begin<T>();
+     for (int i = 0; i < idx.rows; i++) {
+         *im_it= imValues.at<T>(idx.at<int>(i, 1), 0);
+         ++im_it;
+     }
+ }
+
+
+void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, bool display) {
+    hierarchy.clear();
+    contours.clear();
+    boundRects.clear();
+    findContours( obstacleMap.clone(), contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+    //get bounding rects from contours
+    int expand = 3;
+    for (int i =0; i < contours.size(); i++) {
+        curRect = boundingRect(contours[i]);
+        Point2i newTL(max(curRect.tl().x-expand, 0), max(curRect.tl().y-expand,0));
+        Point2i newBR(min(curRect.br().x+expand, obstacleMap.cols-1), min(curRect.br().y+expand,obstacleMap.rows-1));
+        boundRects.push_back(Rect(newTL, newBR));
+        originalRects.push_back(curRect);
+    }
+
+    //intersection groups mirrors finalboxbounds in size, but final box bounds contains information on originalRects, intersection groups is for the expanded rects
+    intersectionGroups.clear();
+    finalBoxBounds.clear();
+
+    for (int k = 0; k < boundRects.size(); k++) {
+          curRect = boundRects[k];
+          originalRect = originalRects[k];
+          bool intersectionFound = false;
+          groupsToMerge.clear();
+          //check for intersections
+         for (int i = 0; i < intersectionGroups.size(); i++) {
+              for (int j = 0; j < intersectionGroups[i].size(); j++) {
+                  otherRect = intersectionGroups[i][j];
+                  intersection = curRect & otherRect;
+                  //one is contained by the other
+                  if (intersection.area() == curRect.area() || intersection.area() == otherRect.area()) {
+                      intersectionGroups[i].push_back(curRect);
+                      finalBoxBounds[i].first = Point2i(min(finalBoxBounds[i].first.x, originalRect.tl().x), min(finalBoxBounds[i].first.y, originalRect.tl().y));
+                      finalBoxBounds[i].second = Point2i(max(finalBoxBounds[i].second.x, originalRect.br().x), max(finalBoxBounds[i].second.y, originalRect.br().y));
+                      //multiple intersecting groups may be found, need to find out what to merge
+                      intersectionFound = true;
+                      groupsToMerge.push_back(i);
+                      break;
+                  } else if (intersection.area() > 0) {
+                      //COLOR SIMILARITY MEASURE
+                      Mat mask1, mask2;
+                      obstacleMap(curRect).copyTo(mask1);
+                      temp1 = image(curRect);
+                      split(temp1, bgr);
+                      getNonZeroPix<unsigned char>(mask1, bgr[0], bgr[0]);
+                      getNonZeroPix<unsigned char>(mask1, bgr[1], bgr[1]);
+                      getNonZeroPix<unsigned char>(mask1, bgr[2], bgr[2]);
+                      input[2] = bgr[2];
+                      input[1] = bgr[1];
+                      input[0] = bgr[0];
+                      cv::merge(input, nonZeroSubset);
+                      calcHist(&nonZeroSubset, imgCount, channels, Mat(), hist1, dims, sizes, ranges);
+                      normalize( hist1, hist1);
+                      int numPix1 = nonZeroSubset.rows;
+
+                      obstacleMap(otherRect).copyTo(mask2);
+                      temp2 = image(otherRect);
+                      split(temp2, bgr);
+                      getNonZeroPix<unsigned char>(mask2, bgr[0], bgr[0]);
+                      getNonZeroPix<unsigned char>(mask2, bgr[1], bgr[1]);
+                      getNonZeroPix<unsigned char>(mask2, bgr[2], bgr[2]);
+                      input[2] = bgr[2];
+                      input[1] = bgr[1];
+                      input[0] = bgr[0];
+                      cv::merge(input, nonZeroSubset);
+                      calcHist(&nonZeroSubset, imgCount, channels, Mat(), hist2, dims, sizes, ranges);
+                      normalize( hist2, hist2);
+                      int numPix2 = nonZeroSubset.rows;
+                      double colorSim = compareHist(hist1, hist2, CV_COMP_INTERSECT);
+                      //std::cout << colorSim << std::endl;
+
+                      // SIZE SIMILARITY MEASURE - current is used if it improves the average fill of the separated boxes
+                      rectUnion = curRect | otherRect;
+                      double sizeSim = 1.0 - ((double)rectUnion.area() - numPix1 - numPix2)/(rectUnion.area());
+                     // std::cout << sizeSim << std::endl;
+
+                      if (colorSim < 2.0 || sizeSim > 0.5) {
+                         //merge curRect with otherRect
+                          intersectionGroups[i].push_back(curRect);
+                          finalBoxBounds[i].first = Point2i(min(finalBoxBounds[i].first.x, originalRect.tl().x), min(finalBoxBounds[i].first.y, originalRect.tl().y));
+                          finalBoxBounds[i].second = Point2i(max(finalBoxBounds[i].second.x, originalRect.br().x), max(finalBoxBounds[i].second.y, originalRect.br().y));
+
+                          intersectionFound = true;
+                          groupsToMerge.push_back(i);
+                          break;
+                      }
+                  }
+              }
+          }
+          if (groupsToMerge.size() > 1) {
+              //merge groups
+              for (int i = groupsToMerge.size()-1; i > 0; i--) {
+                  int mergeTo = groupsToMerge[0];
+                  int mergeFrom = groupsToMerge[i];
+                  intersectionGroups[mergeTo].insert(intersectionGroups[mergeTo].begin(), intersectionGroups[mergeFrom].begin(), intersectionGroups[mergeFrom].end());
+                  finalBoxBounds[mergeTo].first = Point2i(min(finalBoxBounds[mergeTo].first.x, finalBoxBounds[mergeFrom].first.x),
+                                                          min(finalBoxBounds[mergeTo].first.y, finalBoxBounds[mergeFrom].first.y));
+
+                  finalBoxBounds[mergeTo].second = Point2i(max(finalBoxBounds[mergeTo].second.x, finalBoxBounds[mergeFrom].second.x),
+                                                           max(finalBoxBounds[mergeTo].second.y, finalBoxBounds[mergeFrom].second.y));
+
+                  intersectionGroups.erase(intersectionGroups.begin()+mergeFrom);
+                  finalBoxBounds.erase(finalBoxBounds.begin()+mergeFrom);
+              }
+          }
+
+          //no intersections found
+          if (!intersectionFound) {
+              int curSize = intersectionGroups.size();
+              intersectionGroups.resize(curSize+1);
+              intersectionGroups[curSize].push_back(curRect);
+              finalBoxBounds.push_back(std::pair<Point2i, Point2i>(originalRect.tl(), originalRect.br()));
+          }
+    }
+    for (int i = 0; i < finalBoxBounds.size(); i++) {
+        curRect = Rect(finalBoxBounds[i].first, finalBoxBounds[i].second);
+        if (curRect.area() > 25) {
+          rectangle(image, curRect, Scalar(0, 255,0), 2);
+          scoreFile << "other\n" << curRect.tl().x << " " << curRect.tl().y << " "
+                              << curRect.width << " " << curRect.height <<std::endl;
+        }
+    }
+
+    if(display)
+        imshow("boxOutput", image);
+    imwrite(output+name, image);
+}
+
 void initializePriorsAndPosteriorStructures(Mat image) {
     for (int i = 0; i < 4; i++) {
         if (i < 3)
             imagePriors[i] = Mat::zeros(image.rows, image.cols, CV_64F);
         posteriorP[i] = Mat::zeros(image.rows, image.cols, CV_64F);
-        oldPosteriorP[i] = Mat::zeros(image.rows, image.cols, CV_64F);
+        oldPriors[i] = Mat::zeros(image.rows, image.cols, CV_64F);
         posteriorQ[i] = Mat::zeros(image.rows, image.cols, CV_64F);
     }
 
     //From the last 25 images in the Test Media set
     positionMeanPriors[0] = (Mat_<double>(1,5) <<
-                             63.4862123463779,
-                             12.4609487415375,
-                             183.211685891539,
-                             136.869671879791,
-                             121.029556766447);
+                             64.9531377612962,
+                             12.7114319140013,
+                             131.306726742091,
+                             37.6804563745202,
+                             209.603955587930);
     positionCovPriors[0] = (Mat_<double>(5,5) <<
-                            1306.45919492160,	-0.671543580406008,	288.809061389026,	-22.0480438947505,	7.91896527481572,
-                            -0.671543580406008,	79.6475655935463,	65.0266429041669,	-20.1604608936357,	16.3323842052004,
-                            288.809061389026,	65.0266429041669,	787.448913257439,	-57.0199904569081,	38.4255226830039,
-                            -22.0480438947505,	-20.1604608936357,	-57.0199904569081,	77.8934453938443,	-55.1246154667244,
-                            7.91896527481572,	16.3323842052004,	38.4255226830039,	-55.1246154667244,	42.3979988057096);
+                            1302.50738403309,	5.16331221476810,	-46.7216623195916,	-110.858320587398,	211.576800090794,
+                            5.16331221476810,	81.6189693481908,	-26.2254714610841,	-95.9970782044438,	41.4804757273633,
+                            -46.7216623195916,	-26.2254714610841,	2255.05475103781,	217.614570462177,	235.615320627296,
+                            -110.858320587398,	-95.9970782044438,	217.614570462177,	937.364180598562,	-226.841694186760,
+                            211.576800090794,	41.4804757273633,	235.615320627296,	-226.841694186760,	1418.65820871393);
 
     positionMeanPriors[1]  = (Mat_<double>(1,5) <<
-                              62.0588558982002,
-                              19.4825633383010,
-                              141.063372692881,
-                              133.800940043563,
-                              121.761068439757);
+                              61.0766578884367,
+                              19.7486952358152,
+                              124.392423935630,
+                              56.3788256363787,
+                              163.641273641369);
     positionCovPriors[1] = (Mat_<double>(5,5) <<
-                            1296.85582420574,	-1.90516210596181,	138.250110567647,	-25.2637229580370,	15.1450070462499,
-                            -1.90516210596181,	128.451471761792,	6.90423246968720,	5.26878100846356,	-5.78264335881975,
-                            138.250110567647,	6.90423246968720,	1840.63834635385,	88.0459990305772,	-50.8091345248656,
-                            -25.2637229580370,	5.26878100846356,	88.0459990305772,	109.258122654611,	-63.6579401982398,
-                            15.1450070462499,	-5.78264335881975,	-50.8091345248656,	-63.6579401982398,	46.6681591739053);
+                            1294.26820228977,	5.91109861033112,	-111.673449250060,	-46.9881375544757,	111.149025396833,
+                            5.91109861033112,	128.957433835868,	27.5042450642121,	-27.3340299527174,	-38.9960389424345,
+                            -111.673449250060,	27.5042450642121,	2275.59398350067,	35.7121829533379,	874.677879980121,
+                            -46.9881375544757,	-27.3340299527174,	35.7121829533379,	986.066547997161,	-588.816020422674,
+                            111.149025396833,	-38.9960389424345,	874.677879980121,	-588.816020422674,	2708.35928186555);
 
     positionMeanPriors[2] = (Mat_<double>(1,5) <<
-                             63.1211977439997,
-                             52.2657027464609,
-                             124.217469175706,
-                             134.258633471121,
-                             121.632972950533);
+                             62.9513882257448,
+                             52.4619580786860,
+                             139.700614100230,
+                             58.7715504338722,
+                             141.914856283422);
     positionCovPriors[2] = (Mat_<double>(5,5) <<
-                            1301.92942071277,	-2.45330752316907,	74.3889535982663,	0.461727038858542,	6.66619754224339,
-                            -2.45330752316907,	310.466989998298,	-229.579625029713,	4.96049427828225,	-4.63799671519768,
-                            74.3889535982663,	-229.579625029713,	1830.39435535653,	-26.6999266425045,	-2.92121438726508,
-                            0.461727038858542,	4.96049427828225,	-26.6999266425045,	47.5768906528705,	-49.1988005312233,
-                            6.66619754224339,	-4.63799671519768,	-2.92121438726508,	-49.1988005312233,	88.6729064678893);
+                            1301.85757803354,	2.43698126869371,	-11.6478726137114,	-34.5677475344341,	100.146853820201,
+                            2.43698126869371,	305.797563254135,	29.2006044450966,	157.289335323213,	-274.892037087511,
+                            -11.6478726137114,	29.2006044450966,	1297.75359197849,	264.350519819200,	-71.4327776469228,
+                            -34.5677475344341,	157.289335323213,	264.350519819200,	2123.53137783777,	-899.579866784132,
+                            100.146853820201,	-274.892037087511,	-71.4327776469228,	-899.579866784132,	2447.66602013560);
 
     invert(positionCovPriors[0], ipositionCovPriors[0]);
     invert(positionCovPriors[1], ipositionCovPriors[1]);
     invert(positionCovPriors[2], ipositionCovPriors[2]);
-    uniformComponent = 1.0/(image.rows*image.cols*10988544.0)*0.001;
+    uniformComponent = 1.0/(image.rows*image.cols*10988544.0);
 }
 
 void initializeLabelPriors(Mat image) {
@@ -178,10 +350,12 @@ void updatePriorsAndPosteriors(Mat image) {
             double pri3 = uniformComponent;
             double priSum = pri0 + pri1 + pri2 + pri3;
 
+
             posteriorP[0].at<double>(row,col) = pri0/priSum;
             posteriorP[1].at<double>(row,col) = pri1/priSum;
             posteriorP[2].at<double>(row,col) = pri2/priSum;
             posteriorP[3].at<double>(row,col) = pri3/priSum;
+
             assert(posteriorP[0].at<double>(row,col) >= 0 &&
                     posteriorP[1].at<double>(row,col) >= 0 &&
                     posteriorP[2].at<double>(row,col) >= 0 &&
@@ -193,29 +367,32 @@ void updatePriorsAndPosteriors(Mat image) {
 
     //Update prior using S and Q
     Mat SMat[4];
-    for (int i = 0; i < 3; i++) {
+    Mat normalizingMatS = Mat::zeros(image.rows, image.cols, CV_64F);
+    Mat normalizingMatQ= Mat::zeros(image.rows, image.cols, CV_64F);
+    for (int i = 0; i < 4; i++) {
         cv::filter2D(imagePriors[i], SMat[i], -1, lambda0,Point(-1, -1), 0, BORDER_REPLICATE);
         SMat[i] = imagePriors[i].mul(SMat[i]);
-        SMat[i] = SMat[i]*(1.0/cv::sum(SMat[i])[0]);
-        cv::filter2D(SMat[i], SMat[i], -1, lambda1, Point(-1, -1), 0, BORDER_REPLICATE);
-
+        add(normalizingMatS, SMat[i], normalizingMatS);
         cv::filter2D(posteriorP[i], posteriorQ[i], -1, lambda0, Point(-1, -1), 0, BORDER_REPLICATE);
         posteriorQ[i] = posteriorP[i].mul(posteriorQ[i]);
-        posteriorQ[i] = posteriorQ[i]*(1.0/cv::sum(posteriorQ[i])[0]);
+        add(normalizingMatQ, posteriorQ[i], normalizingMatQ);
+    }
+    for (int i = 0; i < 4; i++) {
+        SMat[i] = SMat[i].mul(1.0/normalizingMatS);
+        cv::filter2D(SMat[i], SMat[i], -1, lambda1, Point(-1, -1), 0, BORDER_REPLICATE);
+        posteriorQ[i] = posteriorQ[i].mul(1.0/normalizingMatQ);
         cv::filter2D(posteriorQ[i], posteriorQ[i], -1, lambda1, Point(-1, -1), 0, BORDER_REPLICATE);
-
         imagePriors[i] = (SMat[i] + posteriorQ[i])/4.0;
     }
 }
 
 void updateGaussianParameters(Mat image) {
-    Mat iMeanCovar, iCovar, lambda, meanDiff, meanDiffT, featureSum;
+    Mat lambda, meanDiff, meanDiffT, featureSum;
     Mat meanOpt, covarOpt;
     //Use equations 10 and 11
     for (int i = 0; i < 3; i++) {
         //Used by both updates
-       double Bk = 1.0/cv::sum(posteriorQ[i])[0];
-
+       double Bk = cv::sum(posteriorQ[i])[0];
        //Update Covariance
        int index = 0;
        covarOpt = Mat::zeros(5,5, CV_64F);
@@ -231,17 +408,17 @@ void updateGaussianParameters(Mat image) {
                index++;
            }
        }
-
+       meanDiff = imageFeatures.row(0)-means[i];
        covarOpt = (1.0/Bk)*covarOpt;
-
        assert(covarOpt.rows == 5 && covarOpt.cols == 5);
        assert(featureSum.rows == 1 && featureSum.cols == 5);
 
         //Update mean
         invert(icovars[i] + ipositionCovPriors[i], lambda);
-        Mat intermediateTerm = featureSum*icovars[i]+positionMeanPriors[i]*ipositionCovPriors[i];
+        Mat meanOpt = (1.0/Bk)*featureSum;
+        Mat intermediateTerm = meanOpt*icovars[i]+positionMeanPriors[i]*ipositionCovPriors[i];
         transpose(intermediateTerm, intermediateTerm);
-        meanOpt = (1.0/Bk)*lambda*intermediateTerm;
+        meanOpt = lambda*intermediateTerm;
         transpose(meanOpt, meanOpt);
         covars[i] = covarOpt;
         means[i] = meanOpt;
@@ -282,7 +459,7 @@ void findShoreLine(Mat coloredImage, std::map<int, int>& shoreLine, bool display
     }
 
     if (display)
-        imshow("shoreLine", waterBinary);
+        imshow("Water Zone", waterBinary);
 }
 
 void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
@@ -309,9 +486,11 @@ void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
             switch(maxIndex) {
             case 0:
                 color = Vec3b(0, 0, 255);
+                obstacleMap.at<unsigned char>(row,col) = 128;
                 break;
             case 1:
                 color = Vec3b(0, 255, 0);
+                obstacleMap.at<unsigned char>(row,col) = 128;
                 break;
             case 2:
                 //if (probability > .995) (choose top 10 in every 100 x 100 ush, with a lower bound
@@ -323,10 +502,8 @@ void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
     }
 
     if (display) {
-        imshow("small with obs", obstacleMap);
-        waitKey(1);
-        imshow("small no obs", zoneMapping);
-        waitKey(1);
+        imshow("Obstacle Map", obstacleMap);
+        imshow("Zone Mapping", zoneMapping);
     }
 }
 
@@ -334,11 +511,14 @@ void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstacles
     //simply return any white connected white blobs that are under the zone shift
     //do it by scanning up, once the line has been passed, switch on a flag such that it tends once the current run ends
     obstaclesInWater = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);
-
+    Mat uniformObstacles = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);
+    Mat nonUniformObstacles = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);
+    uniformObstacles.setTo(255, obstacles==255);
+    nonUniformObstacles.setTo(255, obstacles == 128);
     Mat labels;
     Mat stats;
     Mat centroids;
-    int connectedCount = cv::connectedComponentsWithStats(obstacles, labels, stats, centroids);
+    int connectedCount = cv::connectedComponentsWithStats(uniformObstacles, labels, stats, centroids);
     for (int label = 0; label < connectedCount; label++) {
          int* statsForLabel = stats.ptr<int>(label);
          int top = statsForLabel[CC_STAT_TOP];
@@ -346,27 +526,59 @@ void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstacles
          int width = statsForLabel[CC_STAT_WIDTH];
          int height = statsForLabel[CC_STAT_HEIGHT];
          int bottomRow = top+height-1;
-         uint8_t* obsRow = obstacles.ptr<uint8_t>(bottomRow);
+         uint8_t* obsRowBot = uniformObstacles.ptr<uint8_t>(bottomRow);
+         bool obstacleDetected = false;
          for (int col = left; col < left+width; col++) {
-             //If any part of the blob is below the shoreLine, consider it a water obstacle
-            if (obsRow[col] == 255 && bottomRow > shoreLine[col]) {
-                Mat temp;
-                cv::inRange(labels, Scalar(label), Scalar(label), temp);
-                add(obstaclesInWater, temp, obstaclesInWater, obstacles);
+            if (obsRowBot[col] == 255 && bottomRow >= shoreLine[col]) {
+                obstacleDetected = true;
                 break;
             }
          }
+         if (obstacleDetected) {
+             Mat temp;
+             cv::inRange(labels, Scalar(label), Scalar(label), temp);
+             add(obstaclesInWater, temp, obstaclesInWater, uniformObstacles);
+         }
+    }
+    //non uniform
+    connectedCount = cv::connectedComponentsWithStats(nonUniformObstacles, labels, stats, centroids);
+    for (int label = 0; label < connectedCount; label++) {
+         int* statsForLabel = stats.ptr<int>(label);
+         int top = statsForLabel[CC_STAT_TOP];
+         int left = statsForLabel[CC_STAT_LEFT];
+         int width = statsForLabel[CC_STAT_WIDTH];
+         uint8_t* obsRowTop = nonUniformObstacles.ptr<uint8_t>(top);
+         bool obstacleDetected = true;
+         for (int col = left; col < left+width; col++) {
+            if (obsRowTop[col] == 255 && top < shoreLine[col]) {
+                obstacleDetected = false;
+                break;
+            }
+         }
+         if (obstacleDetected) {
+             Mat temp;
+             cv::inRange(labels, Scalar(label), Scalar(label), temp);
+             add(obstaclesInWater, temp, obstaclesInWater, nonUniformObstacles);
+         }
     }
     if (display)
-        imshow("obs in water", obstaclesInWater);
+        imshow("Obstacles in Water", obstaclesInWater);
 
 }
 
 int main(int argc, char *argv[])
 {
 #if VIDEO == 0
+    std::cout << "Path name: " << argv[1] <<std::endl;
+    std::cout << "Image name: " << argv[2] <<std::endl;
+    std::cout << "Output folder: " << argv[3] <<std::endl;
+    name = std::string(argv[2]);
+    output = std::string(argv[3]);
+    waitString = std::string(argv[4]);
+
     Mat image;
-    image = imread("../../TestMedia/images/21.jpg", CV_LOAD_IMAGE_COLOR);
+    image = imread(strcat(argv[1], (const char*)name.c_str()), CV_LOAD_IMAGE_COLOR);
+    scoreFile.open(strcat(argv[3],strcat((char *)name.data(),".txt")));
     if (!image.data)
     {
         printf("No image data \n");
@@ -374,19 +586,21 @@ int main(int argc, char *argv[])
     }
 
 
+    Mat originalImage = image.clone();
     float scale = .25;
     Size size(scale*image.cols, scale*image.rows);
     resize(image, image, size);
 
     //Initialize kernel info once
     int kernelWidth = (2*((int)(.02*image.rows)))+1;
-    Mat kern = getGaussianKernel(kernelWidth, 1.0);
+    Mat kern = getGaussianKernel(kernelWidth, kernelWidth/1.5);
     Mat kernT;
     transpose(kern, kernT);
     kern2d = kern*kernT;
     lambda0 = kern2d.clone();
     lambda0.at<double>(kernelWidth, kernelWidth) = 0.0;
     double zeroSum = (1.0/cv::sum(lambda0)[0]);
+    lambda0.addref();
     lambda0 = lambda0.clone()*zeroSum;
 
     lambda1 = lambda0.clone();
@@ -397,41 +611,41 @@ int main(int argc, char *argv[])
     int64 t1 = getTickCount();
     //Initialize model
     imshow("Orig", image);
-    cvtColor(image, image, CV_BGR2YCrCb);
+    cvtColor(image, image, CV_BGR2HSV);
     setDataFromFrame(image);
     initializeLabelPriors(image);
     initializeGaussianModels(image);
 
     int iter = 0;
     while (iter < 10) {
-        //Swap pointers to old and new posterior predictions
-        cv::swap(oldPosteriorP[0], posteriorP[0]);
-        cv::swap(oldPosteriorP[1], posteriorP[1]);
-        cv::swap(oldPosteriorP[2], posteriorP[2]);
-        cv::swap(oldPosteriorP[3], posteriorP[3]);
+        //TODO: Swap pointers to old and new posterior predictions
+        oldPriors[0] = imagePriors[0].clone();
+        oldPriors[1] = imagePriors[1].clone();
+        oldPriors[2] = imagePriors[2].clone();
+        oldPriors[3] = imagePriors[3].clone();
+
         updatePriorsAndPosteriors(image);
 
-        //drawMapping(image);
         //Now check for convergence
         Mat totalDiff = Mat::zeros(image.rows, image.cols, CV_64F);
         for (int i = 0; i < 4; i++) {
             Mat sqrtOldP, sqrtNewP;
-            cv::sqrt(oldPosteriorP[i], sqrtOldP);
-            cv::sqrt(posteriorP[i], sqrtNewP);
-            totalDiff = totalDiff + cv::abs(sqrtOldP-sqrtNewP);
+            cv::sqrt(oldPriors[i], sqrtOldP);
+            cv::sqrt(imagePriors[i], sqrtNewP);
+            totalDiff = totalDiff + sqrtOldP-sqrtNewP;
         }
         //sort totalDiff in ascending order and take mean of second half
         totalDiff = totalDiff.reshape(0,1);
         cv::sort(totalDiff, totalDiff, CV_SORT_DESCENDING);
         double meanDiff = cv::sum(totalDiff(Range(0,1), Range(0, totalDiff.cols/2)))[0]/(totalDiff.cols/2);
-        if (meanDiff <= 0.01)
+        //std::cout << meanDiff << std::endl;
+        if (meanDiff <= 0.01) {
             break;
+        }
         updateGaussianParameters(image);
         iter++;
     }
 
-    int64 t2 = getTickCount();
-    std::cout << (t2-t1)/getTickFrequency() << std::endl;
     //TODO: optimization of cov update loop, more optimization, eigen to mkl
     Mat zones;
     Mat obstacles;
@@ -441,10 +655,14 @@ int main(int argc, char *argv[])
     Mat obstaclesInWater;
     findObstacles(shoreLine, obstacles, obstaclesInWater, true);
 
-    //Mat bigZones;
-    //resize(zones, bigZones, Size(image.cols*4, image.rows*4));
-    //imshow("final", bigZones);
-    waitKey(0);
+    int64 t2 = getTickCount();
+    std::cout << (t2-t1)/getTickFrequency() << std::endl;
+
+    resize(obstaclesInWater, obstaclesInWater, Size(originalImage.cols, originalImage.rows),0,0,INTER_NEAREST);
+    imshow("large obs", obstaclesInWater);
+    findContoursAndWriteResults(obstaclesInWater, originalImage, true);
+    if (waitString == "WAIT")
+         waitKey(0);
 #elif VIDEO == 1
 
     VideoCapture cap("../../TestMedia/videos/boatm30.mp4"); // open the default camera
