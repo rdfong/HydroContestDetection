@@ -7,4 +7,5 @@ HydroTestSuite/MST
 HydroTestSuite/.DS_Store
 HydroTestSuite/*results.txt
 **/*.m~
-
+scores/*
+scores
