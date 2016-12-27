@@ -1,5 +1,5 @@
 input_root = './images/';
-output_root = './annotations/'
+output_root = './images/'
 
 close all;
 imnames = dir([input_root '*' 'JPG']);
@@ -9,7 +9,6 @@ landCoordinates = zeros(5,0);
 waterCoordinates = zeros(5,0);
 for i=1:length(imnames)
     im = imread(strcat(input_root,'/',imnames(i).name));
-    im = imresize(im, .25);
     [height, width, dim] = size(im);
     figure, imshow(im);
     hold on;
@@ -56,7 +55,8 @@ for i=1:length(imnames)
     %now output hydrotestsuite images folder
     outFile = strcat(output_root,'/',imnames(i).name, '_horizon.txt');
     fileID = fopen(outFile, 'w');
-    fprintf(fileID, '%d %d %d %d', slope, intercept, width, height); 
+    %Output is left intercept, right intercept, width and height
+    fprintf(fileID, '%d %d %d %d', uint32(intercept), uint32(width*slope+intercept), width, height); 
     pause(1.0);
     close;
 end

@@ -61,6 +61,7 @@ std::vector<std::pair<Point2i, Point2i> > finalBoxBounds;
  std::string name;
  std::string output;
  std::string waitString;
+ std::string imageFolder;
 
  template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {
      Mat imValues = im.reshape(0, im.rows*im.cols);
@@ -572,19 +573,29 @@ int main(int argc, char *argv[])
     std::cout << "Path name: " << argv[1] <<std::endl;
     std::cout << "Image name: " << argv[2] <<std::endl;
     std::cout << "Output folder: " << argv[3] <<std::endl;
+    imageFolder = std::string(argv[1]);
     name = std::string(argv[2]);
     output = std::string(argv[3]);
     waitString = std::string(argv[4]);
 
+    std::ifstream horizonFile;
+
     Mat image;
-    image = imread(strcat(argv[1], (const char*)name.c_str()), CV_LOAD_IMAGE_COLOR);
-    scoreFile.open(strcat(argv[3],strcat((char *)name.data(),".txt")));
+    image = imread(strcat((char *)imageFolder.data(), (char *)name.data()), CV_LOAD_IMAGE_COLOR);
+    scoreFile.open(strcat((char *)output.data(), strcat((char *)name.data(),".txt")));
     if (!image.data)
     {
         printf("No image data \n");
         return -1;
     }
 
+    //Get horizon information
+    horizonFile.open(strcat((char *)imageFolder.data(), "_horizon.txt"));
+    std::string line;
+    std::getline(horizonFile, line);
+    int hSlope, hIntercept, hWidth, hHeight;
+    std::istringstream iss(line);
+    iss >> hSlope >> hIntercept >> hWidth >> hHeight;
 
     Mat originalImage = image.clone();
     float scale = .25;
