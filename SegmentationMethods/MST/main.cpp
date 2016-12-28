@@ -747,7 +747,9 @@ int main(int argc, char *argv[])
           for (int i =0; i < contours.size(); i++) {
               curRect = boundingRect(contours[i]);
               meanStdDev(rawCombined(curRect), mean, std);
-              if (std.at<double>(0,0) < 0.1 && curRect.area() >= (.25*combined.rows*combined.cols))
+              if ((std.at<double>(0,0) < 0.1 && curRect.area() >= (.25*combined.rows*combined.cols)) ||
+                      (double)curRect.width/curRect.height < 0.1 ||
+                      (double)curRect.height/curRect.width < 0.1)
                   continue;
               Point2i newTL(max(curRect.tl().x-expand, 0), max(curRect.tl().y-expand,0));
               Point2i newBR(min(curRect.br().x+expand, combined.cols-1), min(curRect.br().y+expand,combined.rows-1));
