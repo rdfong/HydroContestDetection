@@ -624,7 +624,7 @@ void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstacles
          uint8_t* obsRowBot = uniformObstacles.ptr<uint8_t>(bottomRow);
          bool obstacleDetected = false;
          for (int col = left; col < left+width; col++) {
-            if (obsRowBot[col] == 255 && bottomRow >= shoreLine[col]) {
+            if (obsRowBot[col] == 255 && bottomRow > shoreLine[col]) {
                 obstacleDetected = true;
                 break;
             }
