@@ -426,10 +426,10 @@ void updatePriorsAndPosteriors(Mat image) {
         add(normalizingMatQ, posteriorQ[i], normalizingMatQ);
     }
     for (int i = 0; i < 3; i++) {
-        SMat[i] = SMat[i].mul(1.0/normalizingMatS);
-        cv::filter2D(SMat[i], SMat[i], -1, lambda1, Point(-1, -1), 0, BORDER_REPLICATE);
-        posteriorQ[i] = posteriorQ[i].mul(1.0/normalizingMatQ);
-        cv::filter2D(posteriorQ[i], posteriorQ[i], -1, lambda1, Point(-1, -1), 0, BORDER_REPLICATE);
+        Mat temp = SMat[i].mul(1.0/normalizingMatS);
+        cv::filter2D(temp, SMat[i], -1, lambda1, Point(-1, -1), 0, BORDER_REPLICATE);
+        temp = posteriorQ[i].mul(1.0/normalizingMatQ);
+        cv::filter2D(temp, posteriorQ[i], -1, lambda1, Point(-1, -1), 0, BORDER_REPLICATE);
         imagePriors[i] = (SMat[i] + posteriorQ[i])/4.0;
     }
 }
@@ -473,12 +473,12 @@ void updateGaussianParameters(Mat image) {
     }
 }
 
-void findShoreLine(Mat coloredImage, std::map<int, int>& shoreLine, bool useHorizon, bool display) {
+void findShoreLine(Mat coloredImage, std::map<int, int> shoreLine, bool useHorizon, bool display) {
     if (useHorizon) {
         int leftIntercept = hLeftIntercept*coloredImage.rows/(double)hHeight;
         int rightIntercept = hRightIntercept*coloredImage.rows/(double)hHeight;
         for (int col = 0; col < coloredImage.cols; col++) {
-            int curHPoint = (rightIntercept-leftIntercept)*(col/coloredImage.cols)+leftIntercept;
+            int curHPoint = (rightIntercept-leftIntercept)*((double)col/coloredImage.cols)+leftIntercept;
             coloredImage.at<Vec3b>(curHPoint,col) = Vec3b(0,0,0);
             shoreLine[col] = curHPoint;
         }
@@ -501,7 +501,6 @@ void findShoreLine(Mat coloredImage, std::map<int, int>& shoreLine, bool useHori
                 add(waterBinary, temp, waterBinary,mask);
             }
         }
-        //TODO: Now draw the line (just for visualization, this should be combined in one loop with object detection)
         //Anything white component that is above whose lowest pixel starts at the black line or below is considered as an obstacle
         for (int col = 0; col < waterBinary.cols; col++) {
             int row;
@@ -547,7 +546,7 @@ void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
             if (posteriorP[3].at<double>(row,col) > probability)
                 obstacleMap.at<unsigned char>(row,col) = 255;
 
-            int curHPoint = (rightIntercept-leftIntercept)*(col/image.cols)+leftIntercept;
+            int curHPoint = (rightIntercept-leftIntercept)*((double)col/image.cols)+leftIntercept;
             switch(maxIndex) {
             case 0:
                 color = Vec3b(0, 0, 255);
@@ -677,10 +676,10 @@ int main(int argc, char *argv[])
 
     std::ifstream horizonFile;
 
-    Mat image;
-    image = imread(strcat((char *)imageFolder.data(), (char *)name.data()), CV_LOAD_IMAGE_COLOR);
+    Mat originalImage;
+    originalImage = imread(strcat((char *)imageFolder.data(), (char *)name.data()), CV_LOAD_IMAGE_COLOR);
     scoreFile.open(strcat((char *)output.data(), strcat((char *)name.data(),".txt")));
-    if (!image.data)
+    if (!originalImage.data)
     {
         printf("No image data \n");
         return -1;
@@ -693,11 +692,10 @@ int main(int argc, char *argv[])
     std::istringstream iss(line);
     iss >> hLeftIntercept >> hRightIntercept >> hWidth >> hHeight;
 
-    Mat originalImage;
-   image.copyTo(originalImage);
     float scale = .25;
-    Size size(scale*image.cols, scale*image.rows);
-    resize(image, image, size);
+    Size size(scale*originalImage.cols, scale*originalImage.rows);
+    Mat image;
+    resize(originalImage, image, size);
 
     //Initialize kernel info once
     int kernelWidth = (2*((int)(.02*image.rows)))+1;
