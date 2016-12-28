@@ -295,7 +295,6 @@ void initializeGaussianModels(Mat image) {
     int rightIntercept = hRightIntercept*image.rows/(double)hHeight;
     double hMidPercent = (leftIntercept + rightIntercept)/(2.0*image.rows);
     for (i = 0; i < imageFeatures.rows; i++) {
-        //todo mod this
         double curX = imageFeatures.at<double>(i, 0);
         double curY = imageFeatures.at<double>(i, 1);
         int curHPoint = (rightIntercept-leftIntercept)*(curX/image.cols)+leftIntercept;
@@ -418,18 +417,19 @@ void updatePriorsAndPosteriors(Mat image) {
     Mat normalizingMatS = Mat::zeros(image.rows, image.cols, CV_64F);
     Mat normalizingMatQ= Mat::zeros(image.rows, image.cols, CV_64F);
     for (int i = 0; i < 3; i++) {
-        cv::filter2D(imagePriors[i], SMat[i], -1, lambda0,Point(-1, -1), 0, BORDER_REPLICATE);
+        SMat[i] = Mat::zeros(image.rows, image.cols, CV_64F);
+        cv::filter2D(imagePriors[i], SMat[i], -1, lambda0.clone(),Point(-1, -1), 0, BORDER_REPLICATE);
         SMat[i] = imagePriors[i].mul(SMat[i]);
         add(normalizingMatS, SMat[i], normalizingMatS);
-        cv::filter2D(posteriorP[i], posteriorQ[i], -1, lambda0, Point(-1, -1), 0, BORDER_REPLICATE);
+        cv::filter2D(posteriorP[i], posteriorQ[i], -1, lambda0.clone(), Point(-1, -1), 0, BORDER_REPLICATE);
         posteriorQ[i] = posteriorP[i].mul(posteriorQ[i]);
         add(normalizingMatQ, posteriorQ[i], normalizingMatQ);
     }
     for (int i = 0; i < 3; i++) {
-        Mat temp = SMat[i].mul(1.0/normalizingMatS);
-        cv::filter2D(temp, SMat[i], -1, lambda1, Point(-1, -1), 0, BORDER_REPLICATE);
-        temp = posteriorQ[i].mul(1.0/normalizingMatQ);
-        cv::filter2D(temp, posteriorQ[i], -1, lambda1, Point(-1, -1), 0, BORDER_REPLICATE);
+        SMat[i] = SMat[i].mul(1.0/normalizingMatS);
+        cv::filter2D(SMat[i], SMat[i], -1, lambda1.clone(), Point(-1, -1), 0, BORDER_REPLICATE);
+        posteriorQ[i] = posteriorQ[i].mul(1.0/normalizingMatQ);
+        cv::filter2D(posteriorQ[i], posteriorQ[i], -1, lambda1.clone(), Point(-1, -1), 0, BORDER_REPLICATE);
         imagePriors[i] = (SMat[i] + posteriorQ[i])/4.0;
     }
 }
@@ -473,7 +473,7 @@ void updateGaussianParameters(Mat image) {
     }
 }
 
-void findShoreLine(Mat coloredImage, std::map<int, int> shoreLine, bool useHorizon, bool display) {
+void findShoreLine(Mat coloredImage, std::map<int, int>& shoreLine, bool useHorizon, bool display) {
     if (useHorizon) {
         int leftIntercept = hLeftIntercept*coloredImage.rows/(double)hHeight;
         int rightIntercept = hRightIntercept*coloredImage.rows/(double)hHeight;
@@ -522,7 +522,7 @@ void findShoreLine(Mat coloredImage, std::map<int, int> shoreLine, bool useHoriz
 void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
     zoneMapping = image.clone();
     for (int i = 0; i < 3; i++) {
-        filter2D(posteriorP[i], posteriorP[i], -1, kern2d, Point(-1, -1), 0, BORDER_REPLICATE);
+        GaussianBlur(posteriorP[i],posteriorP[i],Size(3,3), 3.0, 3.0, BORDER_REPLICATE);
     }
     obstacleMap = Mat::zeros(zoneMapping.rows, zoneMapping.cols, CV_8U);
     int leftIntercept = hLeftIntercept*image.rows/(double)hHeight;
@@ -583,14 +583,14 @@ void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
                 if (greenUnderRatio > 0.5) {
                     color[1] = 0;
                     color[0] = 255;
-                } else {
+                } else if (obstacleMap.at<unsigned char>(row,col) != 255){
                     obstacleMap.at<unsigned char>(row,col) = 128;
                 }
             } else if (color[2] == 255) {
                 if (redUnderRatio > 0.5) {
                     color[2] = 0;
                     color[0] = 255;
-                } else {
+                } else if (obstacleMap.at<unsigned char>(row,col) != 255){
                     obstacleMap.at<unsigned char>(row,col) = 128;
                 }
             }
@@ -677,8 +677,11 @@ int main(int argc, char *argv[])
     std::ifstream horizonFile;
 
     Mat originalImage;
-    originalImage = imread(strcat((char *)imageFolder.data(), (char *)name.data()), CV_LOAD_IMAGE_COLOR);
-    scoreFile.open(strcat((char *)output.data(), strcat((char *)name.data(),".txt")));
+
+    originalImage = imread(imageFolder+name, CV_LOAD_IMAGE_COLOR);
+
+    scoreFile.open(output+name+std::string(".txt"));
+
     if (!originalImage.data)
     {
         printf("No image data \n");
@@ -686,31 +689,31 @@ int main(int argc, char *argv[])
     }
 
     //Get horizon information
-    horizonFile.open(strcat((char *)imageFolder.data(), "_horizon.txt"));
+
+    horizonFile.open(imageFolder+name+std::string("_horizon.txt"));
     std::string line;
     std::getline(horizonFile, line);
     std::istringstream iss(line);
     iss >> hLeftIntercept >> hRightIntercept >> hWidth >> hHeight;
 
+    horizonFile.close();
     float scale = .25;
     Size size(scale*originalImage.cols, scale*originalImage.rows);
     Mat image;
     resize(originalImage, image, size);
 
     //Initialize kernel info once
-    int kernelWidth = (2*((int)(.02*image.rows)))+1;
-    Mat kern = getGaussianKernel(kernelWidth, kernelWidth/1.5);
+    int kernelWidth = (2*((int)(.08*image.rows)))+1;
+    Mat kern = getGaussianKernel(kernelWidth, kernelWidth/2);
     Mat kernT;
     transpose(kern, kernT);
     kern2d = kern*kernT;
     lambda0 = kern2d.clone();
-    lambda0.at<double>(kernelWidth, kernelWidth) = 0.0;
-    double zeroSum = (1.0/cv::sum(lambda0)[0]);
-    lambda0.addref();
+    lambda0.at<double>(kernelWidth/1.5, kernelWidth/1.5) = 0.0;
+    double zeroSum = 1.0/cv::sum(lambda0)[0];
     lambda0 = lambda0.clone()*zeroSum;
-
     lambda1 = lambda0.clone();
-    lambda1.at<double>(kernelWidth,kernelWidth) = 1.0;
+    lambda1.at<double>(kernelWidth/1.5,kernelWidth/1.5) = 1.0;
 
     initializePriorsAndPosteriorStructures(image);
 
@@ -721,7 +724,6 @@ int main(int argc, char *argv[])
     setDataFromFrame(image);
     initializeLabelPriors(image);
     initializeGaussianModels(image);
-
     int iter = 0;
     while (iter < 10) {
         oldPriors[0] = imagePriors[0].clone();
@@ -729,7 +731,6 @@ int main(int argc, char *argv[])
         oldPriors[2] = imagePriors[2].clone();
 
         updatePriorsAndPosteriors(image);
-
         //Now check for convergence
         Mat totalDiff = Mat::zeros(image.rows, image.cols, CV_64F);
         for (int i = 0; i < 3; i++) {
@@ -768,6 +769,7 @@ int main(int argc, char *argv[])
     findContoursAndWriteResults(obstaclesInWater, originalImage, true);
     if (wait)
         waitKey(0);
+    scoreFile.close();
 #elif VIDEO == 1
 
     VideoCapture cap("../../TestMedia/videos/boatm30.mp4"); // open the default camera
