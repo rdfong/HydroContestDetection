@@ -7,10 +7,13 @@ using namespace cv;
 
 #define VIDEO 0
 
-//Weak prior
+#define USE_WEAK_PRIOR 0
+// Disable weak prior, not flexible enough for purposes and actually made some results worse
+#if USE_WEAK_PRIOR == 1
 Mat positionMeanPriors[3];
 Mat positionCovPriors[3];
 Mat ipositionCovPriors[3];
+#endif
 
 //M Step update
 Mat means[3];
@@ -219,7 +222,8 @@ void initializePriorsAndPosteriorStructures(Mat image) {
         }
         posteriorP[i] = Mat::zeros(image.rows, image.cols, CV_64F);
     }
-
+    uniformComponent = 1.0/(image.rows*image.cols*10988544.0);
+#if USE_WEAK_PRIOR == 1
     //From the last 25 images in the Test Media set
     positionMeanPriors[0] = (Mat_<double>(1,5) <<
                              64.9531377612962,
@@ -263,7 +267,7 @@ void initializePriorsAndPosteriorStructures(Mat image) {
     invert(positionCovPriors[0], ipositionCovPriors[0]);
     invert(positionCovPriors[1], ipositionCovPriors[1]);
     invert(positionCovPriors[2], ipositionCovPriors[2]);
-    uniformComponent = 1.0/(image.rows*image.cols*10988544.0);
+#endif
 }
 
 void initializeLabelPriors(Mat image) {
@@ -462,12 +466,14 @@ void updateGaussianParameters(Mat image) {
        assert(featureSum.rows == 1 && featureSum.cols == 5);
 
         //Update mean
-        invert(icovars[i] + ipositionCovPriors[i], lambda);
         Mat meanOpt = (1.0/Bk)*featureSum;
-        Mat intermediateTerm = meanOpt*icovars[i]+positionMeanPriors[i]*ipositionCovPriors[i];
-        transpose(intermediateTerm, intermediateTerm);
-        meanOpt = lambda*intermediateTerm;
-        transpose(meanOpt, meanOpt);
+#if USE_WEAK_PRIOR == 1
+       invert(icovars[i] + ipositionCovPriors[i], lambda);
+       Mat intermediateTerm = meanOpt*icovars[i]+positionMeanPriors[i]*ipositionCovPriors[i];
+       transpose(intermediateTerm, intermediateTerm);
+       meanOpt = lambda*intermediateTerm;
+       transpose(meanOpt, meanOpt);
+#endif
         covars[i] = covarOpt;
         means[i] = meanOpt;
     }
@@ -704,16 +710,16 @@ int main(int argc, char *argv[])
 
     //Initialize kernel info once
     int kernelWidth = (2*((int)(.08*image.rows)))+1;
-    Mat kern = getGaussianKernel(kernelWidth, kernelWidth/2);
+    Mat kern = getGaussianKernel(kernelWidth, kernelWidth/1.5);
     Mat kernT;
     transpose(kern, kernT);
     kern2d = kern*kernT;
     lambda0 = kern2d.clone();
-    lambda0.at<double>(kernelWidth/1.5, kernelWidth/1.5) = 0.0;
+    lambda0.at<double>(kernelWidth/2, kernelWidth/2) = 0.0;
     double zeroSum = 1.0/cv::sum(lambda0)[0];
     lambda0 = lambda0.clone()*zeroSum;
     lambda1 = lambda0.clone();
-    lambda1.at<double>(kernelWidth/1.5,kernelWidth/1.5) = 1.0;
+    lambda1.at<double>(kernelWidth/2,kernelWidth/2) = 1.0;
 
     initializePriorsAndPosteriorStructures(image);
 
@@ -743,7 +749,7 @@ int main(int argc, char *argv[])
         totalDiff = totalDiff.reshape(0,1);
         cv::sort(totalDiff, totalDiff, CV_SORT_DESCENDING);
         double meanDiff = cv::sum(totalDiff(Range(0,1), Range(0, totalDiff.cols/2)))[0]/(totalDiff.cols/2);
-        //std::cout << meanDiff << std::endl;
+        //std::cout << meanDiff <<std::endl;
         if (meanDiff <= 0.01) {
             break;
         }
