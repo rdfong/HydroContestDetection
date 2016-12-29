@@ -38,7 +38,6 @@ Mat lambda1;
 
 double uniformComponent;
 
-
 //SETUP FOR BOX SELECTION
 int imgCount = 1;
 int dims = 3;
@@ -276,10 +275,13 @@ void initializeLabelPriors(Mat image) {
     //from their implementation for ycrcb
     double gaussianComponent = (1.0-uniformComponent)/3.0;
     for (int row = 0; row < image.rows; row++) {
+        double *imPriRow0 = imagePriors[0].ptr<double>(row);
+        double *imPriRow1 = imagePriors[1].ptr<double>(row);
+        double *imPriRow2 = imagePriors[2].ptr<double>(row);
         for (int col = 0; col < image.cols; col++) {
-            imagePriors[0].at<double>(row,col) = gaussianComponent;
-            imagePriors[1].at<double>(row,col) = gaussianComponent;
-            imagePriors[2].at<double>(row,col) = gaussianComponent;
+            imPriRow0[col] = gaussianComponent;
+            imPriRow1[col] = gaussianComponent;
+            imPriRow2[col] = gaussianComponent;
         }
     }
 }
@@ -402,7 +404,6 @@ void updatePriorsAndPosteriors(Mat image) {
             double pri3 = uniformComponent;
             double priSum = pri0 + pri1 + pri2 + pri3;
 
-
             posteriorP[0].at<double>(row,col) = pri0/priSum;
             posteriorP[1].at<double>(row,col) = pri1/priSum;
             posteriorP[2].at<double>(row,col) = pri2/priSum;
@@ -447,22 +448,16 @@ void updateGaussianParameters(Mat image) {
         //Used by both updates
        double Bk = cv::sum(posteriorQ[i])[0];
        //Update Covariance
-       int index = 0;
        covarOpt = Mat::zeros(5,5, CV_64F);
-       featureSum = Mat::zeros(1,5, CV_64F); //Used for mean update, may as well calculate in this loop
-
-       for (int row = 0; row < image.rows; row++) {
-           double *curRowQ = posteriorQ[i].ptr<double>(row);
-           for (int col = 0; col < image.cols; col++) {
-               meanDiff = imageFeatures.row(index)-means[i];
-               transpose(meanDiff, meanDiffT);
-               covarOpt = covarOpt+curRowQ[col]*meanDiffT*meanDiff;
-               featureSum = featureSum + curRowQ[col]*imageFeatures.row(index);
-               index++;
-           }
-       }
-       meanDiff = imageFeatures.row(0)-means[i];
-       covarOpt = (1.0/Bk)*covarOpt;
+       featureSum = Mat::zeros(1,5, CV_64F);
+       Mat meanRepeated = cv::repeat(means[i], image.rows*image.cols,1);
+       Mat posteriorQReshaped = posteriorQ[i].clone();
+       posteriorQReshaped = posteriorQReshaped.reshape(0, image.rows*image.cols);
+       posteriorQReshaped  = cv::repeat(posteriorQReshaped, 1, 5);
+       meanDiff = imageFeatures-meanRepeated;
+       transpose(meanDiff.mul(posteriorQReshaped), meanDiffT);
+       covarOpt = (1.0/Bk)*meanDiffT*meanDiff;
+       cv::reduce(imageFeatures.mul(posteriorQReshaped), featureSum, 0, CV_REDUCE_SUM, CV_64F);
        assert(covarOpt.rows == 5 && covarOpt.cols == 5);
        assert(featureSum.rows == 1 && featureSum.cols == 5);
 
@@ -716,15 +711,16 @@ int main(int argc, char *argv[])
 
     initializePriorsAndPosteriorStructures(image);
 
-    int64 t1 = getTickCount();
     //Initialize model
     imshow("Orig", image);
+    int64 t1 = getTickCount();
     cvtColor(image, image, CV_BGR2HSV);
     setDataFromFrame(image);
     initializeLabelPriors(image);
     initializeGaussianModels(image);
+
     int iter = 0;
-    while (iter < 10) {
+    while (iter < 5) {
         oldPriors[0] = imagePriors[0].clone();
         oldPriors[1] = imagePriors[1].clone();
         oldPriors[2] = imagePriors[2].clone();
@@ -748,18 +744,16 @@ int main(int argc, char *argv[])
         updateGaussianParameters(image);
         iter++;
     }
-
-    //TODO: optimization of cov update loop, more optimization, eigen to mkl
+    int64 t2 = getTickCount();
     Mat zones;
     Mat obstacles;
-    drawMapping(image, zones, obstacles, true);
+    drawMapping(image, zones, obstacles, false);
     std::map<int,int> shoreLine;
     bool useHorizon = true;
-    findShoreLine(zones, shoreLine, useHorizon, true);
+    findShoreLine(zones, shoreLine, useHorizon, false);
     Mat obstaclesInWater;
-    findObstacles(shoreLine, obstacles, obstaclesInWater, true);
+    findObstacles(shoreLine, obstacles, obstaclesInWater, false);
 
-    int64 t2 = getTickCount();
     std::cout << (t2-t1)/getTickFrequency() << std::endl;
 
     resize(obstaclesInWater, obstaclesInWater, Size(originalImage.cols, originalImage.rows),0,0,INTER_NEAREST);
