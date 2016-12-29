@@ -466,7 +466,7 @@ void updateGaussianParameters(Mat image) {
        assert(featureSum.rows == 1 && featureSum.cols == 5);
 
         //Update mean
-        Mat meanOpt = (1.0/Bk)*featureSum;
+       meanOpt = (1.0/Bk)*featureSum;
 #if USE_WEAK_PRIOR == 1
        invert(icovars[i] + ipositionCovPriors[i], lambda);
        Mat intermediateTerm = meanOpt*icovars[i]+positionMeanPriors[i]*ipositionCovPriors[i];
@@ -474,8 +474,8 @@ void updateGaussianParameters(Mat image) {
        meanOpt = lambda*intermediateTerm;
        transpose(meanOpt, meanOpt);
 #endif
-        covars[i] = covarOpt;
-        means[i] = meanOpt;
+        covars[i] = covarOpt.clone();
+        means[i] = meanOpt.clone();
     }
 }
 
@@ -749,7 +749,6 @@ int main(int argc, char *argv[])
         totalDiff = totalDiff.reshape(0,1);
         cv::sort(totalDiff, totalDiff, CV_SORT_DESCENDING);
         double meanDiff = cv::sum(totalDiff(Range(0,1), Range(0, totalDiff.cols/2)))[0]/(totalDiff.cols/2);
-        //std::cout << meanDiff <<std::endl;
         if (meanDiff <= 0.01) {
             break;
         }

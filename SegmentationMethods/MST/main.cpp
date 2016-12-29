@@ -421,10 +421,6 @@ void passDown() {
     }
 }
 
-void getBoundingBoxes(Mat binIm) {
-
-}
-
 const int K = 3;
 void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Mat& out) {
     Mat labels;
@@ -442,7 +438,6 @@ void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Ma
 
     std::vector<Mat> backgroundDisMaps(K);
     std::vector<Mat> backgroundMeans(K);
-    std::vector<Mat> coVarMats(K);
 
     for (int k = 0; k < K; k++) {
         backgroundDisMaps[k] = Mat::zeros(out.rows, out.cols, CV_32F);
@@ -457,7 +452,7 @@ void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Ma
         }
         Mat mean;
         reduce(pointsMat,mean, 0, CV_REDUCE_AVG);
-        backgroundMeans[k] = mean;
+        backgroundMeans[k] = mean.clone();
     }
 
     auto out_it_0 = backgroundDisMaps[0].begin<float>();

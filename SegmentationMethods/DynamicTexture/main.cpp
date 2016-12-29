@@ -179,48 +179,6 @@ void calcEntropySpace(const Mat& flow, Mat& entropy, int boxRadius) {
    }
 
    entropy = entropy/maxVal;
-    //fast way
-    /*Mat length = Mat::zeros(entropy.rows, entropy.cols, CV_32F);
-    Mat_<Point2f> vecs(entropy.rows, entropy.cols, Point2f(0,0));
-
-    Mat lengthF = Mat::zeros(entropy.rows, entropy.cols, CV_32F);
-    Mat_<Point2f> vecsF(entropy.rows, entropy.cols, Point2f(0,0));
-
-    //first row of col sums
-    for(int x = 0; x < flow.cols; x++) {
-        for (int y = 0; y < 2*boxRadius+1; y++) {
-            Point2f flowVec = flow.at<Point2f>(y, x);
-            vecs.at<Point2f>(boxRadius,x) += flowVec;
-            length.at<double>(boxRadius,x) += norm(flowVec);
-            assert(length.at<double>(y,x) >= 0);
-        }
-    }
-
-    //now incrementally populate down the rows
-    for(int x = 0; x < flow.cols; x++) {
-        for(int y = boxRadius+1; y < flow.rows-boxRadius; y++) {
-            Point2f toRemove = flow.at<Point2f>(y-boxRadius-1, x);
-            Point2f toAdd = flow.at<Point2f>(y+boxRadius, x);
-            vecs.at<Point2f>(y, x) = vecs.at<Point2f>(y-1, x)-toRemove+toAdd;
-            length.at<double>(y,x) = length.at<double>(y-1, x)-norm(toRemove)+norm(toAdd);
-            if (length.at<double>(y,x) < 0)
-                std::cout << length.at<double>(y, x) << std::endl;
-            //assert(length.at<double>(y,x) >= 0);
-        }
-    }
-
-    //now we have all vertical sums, so we need to sum horizontally in groups of boxSize
-    for (int y = boxRadius; y < flow.rows-boxRadius; y++) {
-        for (int x = boxRadius; x < flow.cols-boxRadius; x++) {
-            for (int k = -boxRadius; k <= boxRadius; k++)
-            {
-                vecsF.at<Point2f>(y,x) += flowVec.at<double>(y,x+k);
-                lengthF.at<double>(y,x) += length.at<double>(y,x+k);
-            }
-        }
-    }
-    //negative length issue
-    //radius update?*/
 }
 
 //current issues:
@@ -266,11 +224,6 @@ int main(int argc, char *argv[])
         cvtColor( frame2, gray2, CV_BGR2GRAY );
 
         //get y,r,g,b stats
-
-/*CV_EXPORTS_W void calcOpticalFlowFarneback( InputArray prev, InputArray next, InputOutputArray flow,
-        double pyr_scale, int levels, int winsize,
-        int iterations, int poly_n, double poly_sigma,
-        int flags );*/
         calcOpticalFlowFarneback(gray1,gray2, uflow, 0.0, 1, 3, 1, 5, 1.2, 0);
         uflow.copyTo(flow);
         Mat dissimiliarity = Mat::ones(flow.rows, flow.cols, CV_64F);
