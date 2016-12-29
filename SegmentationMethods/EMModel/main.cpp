@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
 #include <fstream>
+#include <eigen3/Eigen/Dense>
+#include <opencv2/core/eigen.hpp>
 
 using namespace cv;
 
@@ -66,7 +68,7 @@ std::vector<std::pair<Point2i, Point2i> > finalBoxBounds;
  std::string waitString;
  std::string imageFolder;
 
-int hLeftIntercept, hRightIntercept, hWidth, hHeight;
+int leftIntercept, rightIntercept;
 
  template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {
      Mat imValues = im.reshape(0, im.rows*im.cols);
@@ -286,7 +288,7 @@ void initializeGaussianModels(Mat image) {
     //If we have confident horizon line estimatse we can have good estimates
     //If do not however we assume the height spread for the gaussians, 0.0-0.2, 0.2-0.4,0.6-1.0
     //It is assumed here that the horizon line lies between 0.4 and 0.6
-    
+
     //We start with this implementing under this assumption, if a better horizon line detection comes up, we'll use it
     int skyCount = 0;
     int landCount = 0;
@@ -295,8 +297,6 @@ void initializeGaussianModels(Mat image) {
     std::map<int,std::pair<int, int> > indexToRegion;
     int i;
 
-    int leftIntercept = hLeftIntercept*image.rows/(double)hHeight;
-    int rightIntercept = hRightIntercept*image.rows/(double)hHeight;
     double hMidPercent = (leftIntercept + rightIntercept)/(2.0*image.rows);
     for (i = 0; i < imageFeatures.rows; i++) {
         double curX = imageFeatures.at<double>(i, 0);
@@ -367,11 +367,12 @@ void setDataFromFrame(Mat image) {
     for (int row = 0; row < image.rows; row++) {
         for (int col = 0; col < image.cols; col++) {
             cv::Vec3b color = image.at<cv::Vec3b>(row,col);
-            imageFeatures.at<double>(index, 0) = col;
-            imageFeatures.at<double>(index, 1) = row;
-            imageFeatures.at<double>(index, 2) = color[0];
-            imageFeatures.at<double>(index, 3) = color[1];
-            imageFeatures.at<double>(index, 4) = color[2];
+            double *rowPtr = imageFeatures.ptr<double>(index);
+            rowPtr[0] = col;
+            rowPtr[1] = row;
+            rowPtr[2] = color[0];
+            rowPtr[3] = color[1];
+            rowPtr[4] = color[2];
             index++;
         }
     }
@@ -481,8 +482,6 @@ void updateGaussianParameters(Mat image) {
 
 void findShoreLine(Mat coloredImage, std::map<int, int>& shoreLine, bool useHorizon, bool display) {
     if (useHorizon) {
-        int leftIntercept = hLeftIntercept*coloredImage.rows/(double)hHeight;
-        int rightIntercept = hRightIntercept*coloredImage.rows/(double)hHeight;
         for (int col = 0; col < coloredImage.cols; col++) {
             int curHPoint = (rightIntercept-leftIntercept)*((double)col/coloredImage.cols)+leftIntercept;
             coloredImage.at<Vec3b>(curHPoint,col) = Vec3b(0,0,0);
@@ -531,8 +530,6 @@ void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
         GaussianBlur(posteriorP[i],posteriorP[i],Size(3,3), 3.0, 3.0, BORDER_REPLICATE);
     }
     obstacleMap = Mat::zeros(zoneMapping.rows, zoneMapping.cols, CV_8U);
-    int leftIntercept = hLeftIntercept*image.rows/(double)hHeight;
-    int rightIntercept = hRightIntercept*image.rows/(double)hHeight;
     int totalRed = 0;
     int redUnder = 0;
     int totalGreen = 0;
@@ -583,21 +580,22 @@ void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
     double redUnderRatio = (double)redUnder/totalRed;
     double greenUnderRatio = (double)greenUnder/totalGreen;
     for (int row = 0; row < zoneMapping.rows; row++) {
+        unsigned char *obstaclePtr = obstacleMap.ptr<uint8_t>(row);
         for (int col = 0; col < zoneMapping.cols; col++) {
             Vec3b& color = zoneMapping.at<Vec3b>(row,col);
             if (color[1] == 255) {
                 if (greenUnderRatio > 0.5) {
                     color[1] = 0;
                     color[0] = 255;
-                } else if (obstacleMap.at<unsigned char>(row,col) != 255){
-                    obstacleMap.at<unsigned char>(row,col) = 128;
+                } else if (obstaclePtr[col] != 255){
+                    obstaclePtr[col] = 128;
                 }
             } else if (color[2] == 255) {
                 if (redUnderRatio > 0.5) {
                     color[2] = 0;
                     color[0] = 255;
-                } else if (obstacleMap.at<unsigned char>(row,col) != 255){
-                    obstacleMap.at<unsigned char>(row,col) = 128;
+                } else if (obstaclePtr[col] != 255){
+                    obstaclePtr[col] = 128;
                 }
             }
         }
@@ -619,24 +617,20 @@ void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstacles
     Mat labels;
     Mat stats;
     Mat centroids;
+    Mat temp;
     int connectedCount = cv::connectedComponentsWithStats(uniformObstacles, labels, stats, centroids);
     for (int label = 0; label < connectedCount; label++) {
          int* statsForLabel = stats.ptr<int>(label);
-         int top = statsForLabel[CC_STAT_TOP];
-         int left = statsForLabel[CC_STAT_LEFT];
-         int width = statsForLabel[CC_STAT_WIDTH];
-         int height = statsForLabel[CC_STAT_HEIGHT];
-         int bottomRow = top+height-1;
+         int bottomRow = statsForLabel[CC_STAT_TOP]+statsForLabel[CC_STAT_HEIGHT]-1;
          uint8_t* obsRowBot = uniformObstacles.ptr<uint8_t>(bottomRow);
          bool obstacleDetected = false;
-         for (int col = left; col < left+width; col++) {
+         for (int col = statsForLabel[CC_STAT_LEFT]; col < statsForLabel[CC_STAT_LEFT]+statsForLabel[CC_STAT_WIDTH]; col++) {
             if (obsRowBot[col] == 255 && bottomRow > shoreLine[col]) {
                 obstacleDetected = true;
                 break;
             }
          }
          if (obstacleDetected) {
-             Mat temp;
              cv::inRange(labels, Scalar(label), Scalar(label), temp);
              add(obstaclesInWater, temp, obstaclesInWater, uniformObstacles);
          }
@@ -645,26 +639,21 @@ void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstacles
     connectedCount = cv::connectedComponentsWithStats(nonUniformObstacles, labels, stats, centroids);
     for (int label = 0; label < connectedCount; label++) {
          int* statsForLabel = stats.ptr<int>(label);
-         int top = statsForLabel[CC_STAT_TOP];
-         int left = statsForLabel[CC_STAT_LEFT];
-         int width = statsForLabel[CC_STAT_WIDTH];
-         uint8_t* obsRowTop = nonUniformObstacles.ptr<uint8_t>(top);
+         uint8_t* obsRowTop = nonUniformObstacles.ptr<uint8_t>(statsForLabel[CC_STAT_TOP]);
          bool obstacleDetected = true;
-         for (int col = left; col < left+width; col++) {
-            if (obsRowTop[col] == 255 && top < shoreLine[col]) {
+         for (int col = statsForLabel[CC_STAT_LEFT]; col < statsForLabel[CC_STAT_LEFT]+statsForLabel[CC_STAT_WIDTH]; col++) {
+            if (obsRowTop[col] == 255 && statsForLabel[CC_STAT_TOP] < shoreLine[col]) {
                 obstacleDetected = false;
                 break;
             }
          }
          if (obstacleDetected) {
-             Mat temp;
              cv::inRange(labels, Scalar(label), Scalar(label), temp);
              add(obstaclesInWater, temp, obstaclesInWater, nonUniformObstacles);
          }
     }
     if (display)
         imshow("Obstacles in Water", obstaclesInWater);
-
 }
 
 int main(int argc, char *argv[])
@@ -700,6 +689,7 @@ int main(int argc, char *argv[])
     std::string line;
     std::getline(horizonFile, line);
     std::istringstream iss(line);
+    int hLeftIntercept, hRightIntercept, hWidth, hHeight;
     iss >> hLeftIntercept >> hRightIntercept >> hWidth >> hHeight;
 
     horizonFile.close();
@@ -707,6 +697,9 @@ int main(int argc, char *argv[])
     Size size(scale*originalImage.cols, scale*originalImage.rows);
     Mat image;
     resize(originalImage, image, size);
+
+    leftIntercept = hLeftIntercept*image.rows/(double)hHeight;
+    rightIntercept = hRightIntercept*image.rows/(double)hHeight;
 
     //Initialize kernel info once
     int kernelWidth = (2*((int)(.08*image.rows)))+1;
