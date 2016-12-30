@@ -271,17 +271,29 @@ void initializePriorsAndPosteriorStructures(Mat image) {
 #endif
 }
 
-void initializeLabelPriors(Mat image) {
-    //from their implementation for ycrcb
-    double gaussianComponent = (1.0-uniformComponent)/3.0;
-    for (int row = 0; row < image.rows; row++) {
-        double *imPriRow0 = imagePriors[0].ptr<double>(row);
-        double *imPriRow1 = imagePriors[1].ptr<double>(row);
-        double *imPriRow2 = imagePriors[2].ptr<double>(row);
-        for (int col = 0; col < image.cols; col++) {
-            imPriRow0[col] = gaussianComponent;
-            imPriRow1[col] = gaussianComponent;
-            imPriRow2[col] = gaussianComponent;
+void initializeLabelPriors(Mat image, bool usePrevious) {
+    if (usePrevious) {
+        //TODO: Untested on video due to lack of real time horizon data
+        double nonUniformSum = 1.0-uniformComponent;
+        std::cout << nonUniformSum << std::endl;
+        Mat QSum = posteriorQ[0] + posteriorQ[1] + posteriorQ[2];
+        for (int i = 0; i < 3; i++) {
+            //normalize posteriorQ, blur, and set prior equal to
+            Mat normalizedQ = (posteriorQ[i]/QSum)*nonUniformSum;
+            //Blur and set to imagePriors
+            GaussianBlur(normalizedQ,imagePriors[i],Size(3,3), 3.0, 3.0, BORDER_REPLICATE);
+        }
+    } else {
+        double gaussianComponent = (1.0-uniformComponent)/3.0;
+        for (int row = 0; row < image.rows; row++) {
+            double *imPriRow0 = imagePriors[0].ptr<double>(row);
+            double *imPriRow1 = imagePriors[1].ptr<double>(row);
+            double *imPriRow2 = imagePriors[2].ptr<double>(row);
+            for (int col = 0; col < image.cols; col++) {
+                imPriRow0[col] = gaussianComponent;
+                imPriRow1[col] = gaussianComponent;
+                imPriRow2[col] = gaussianComponent;
+            }
         }
     }
 }
@@ -379,7 +391,7 @@ void setDataFromFrame(Mat image) {
         }
     }
 }
-int t3;
+
 void updatePriorsAndPosteriors(Mat image) {
     //Make sure matrices are well conditioned
     int result0 = invert(covars[0]+Mat::eye(5,5,CV_64F).mul(covars[0])*1e-10, icovars[0]);
@@ -416,7 +428,6 @@ void updatePriorsAndPosteriors(Mat image) {
     Mat SMat[3];
     Mat normalizingMatS = Mat::zeros(image.rows, image.cols, CV_64F);
     Mat normalizingMatQ= Mat::zeros(image.rows, image.cols, CV_64F);
-    int t1 = getTickCount();
     for (int i = 0; i < 3; i++) {
         SMat[i] = Mat::zeros(image.rows, image.cols, CV_64F);
         cv::filter2D(imagePriors[i], SMat[i], -1, lambda0.clone(),Point(-1, -1), 0, BORDER_REPLICATE);
@@ -433,8 +444,6 @@ void updatePriorsAndPosteriors(Mat image) {
         cv::filter2D(posteriorQ[i], posteriorQ[i], -1, lambda1.clone(), Point(-1, -1), 0, BORDER_REPLICATE);
         imagePriors[i] = (SMat[i] + posteriorQ[i])/4.0;
     }
-    int t2 = getTickCount();
-    t3 += (t2-t1);
 }
 
 void updateGaussianParameters(Mat image) {
@@ -692,7 +701,6 @@ int main(int argc, char *argv[])
     }
 
     //Get horizon information
-
     horizonFile.open(imageFolder+name+std::string("_horizon.txt"));
     std::string line;
     std::getline(horizonFile, line);
@@ -732,13 +740,12 @@ int main(int argc, char *argv[])
     Mat sqrtOldP, sqrtNewP;
 
     initializePriorsAndPosteriorStructures(image);
-    imshow("Orig", image);
 
     int64 t1 = getTickCount();
     //Initialize model
     cvtColor(image, image, CV_BGR2HSV);
     setDataFromFrame(image);
-    initializeLabelPriors(image);
+    initializeLabelPriors(image, false);
     initializeGaussianModels(image);
 
     int iter = 0;
@@ -769,10 +776,9 @@ int main(int argc, char *argv[])
     findShoreLine(zones, shoreLine, useHorizon, false);
     findObstacles(shoreLine, obstacles, obstaclesInWater, false);
     int64 t2 = getTickCount();
-    std::cout << (t3)/getTickFrequency() << std::endl;
+    std::cout << (t2-t1)/getTickFrequency() << std::endl;
 
     resize(obstaclesInWater, obstaclesInWater, Size(originalImage.cols, originalImage.rows),0,0,INTER_NEAREST);
-    imshow("large obs", obstaclesInWater);
     findContoursAndWriteResults(obstaclesInWater, originalImage, true);
     if (wait)
         waitKey(0);
