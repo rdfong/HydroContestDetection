@@ -1,5 +1,27 @@
 #include "BoundingBoxes.h"
 
+//SETUP FOR BOX SELECTION
+int imgCount = 1;
+int dims = 3;
+const int sizes[] = {64,64,64};
+const int channels[] = {0,1,2};
+float rRange[] = {0,256};
+float gRange[] = {0,256};
+float bRange[] = {0,256};
+const float *ranges[] = {rRange,gRange,bRange};
+Mat mask = Mat();
+std::vector<std::vector<Point> > contours;
+std::vector<Vec4i> hierarchy;
+std::vector<Rect> boundRects;
+std::vector<Rect> originalRects;
+Mat hist1, temp1, hist2, temp2, nonZeroSubset;
+Mat bgr[3];
+Rect curRect, otherRect, originalRect, intersection, rectUnion;
+std::vector<std::vector<Rect> > intersectionGroups;
+std::vector<std::pair<Point2i, Point2i> > finalBoxBounds;
+std::vector<Mat> input(3);
+std::vector<int> groupsToMerge;
+
 //Finding final contours from binary map
 
 template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {

@@ -8,7 +8,6 @@ std::vector<vNode*> diffBins(256);
 std::vector<vNode> dummyNodes;
 const int K = 3;
 
-
 void createVertexGrid(int rows, int cols) {
     auto v_col = vNodes.begin();
     auto v_prev_row = vNodes.begin();

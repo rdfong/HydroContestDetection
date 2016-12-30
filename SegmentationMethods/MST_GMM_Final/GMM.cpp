@@ -1,5 +1,34 @@
 #include "GMM.h"
 
+// Disable weak prior, not flexible enough for purposes and actually made some results worse
+#if USE_WEAK_PRIOR == 1
+Mat positionMeanPriors[3];
+Mat positionCovPriors[3];
+Mat ipositionCovPriors[3];
+#endif
+
+
+//M Step update
+Mat means[3];
+Mat covars[3];
+Mat icovars[3];
+
+//E step update
+Mat imagePriors[3]; //We don't actually need a prior for the uniform component
+Mat oldPriors[3];
+Mat posteriorQ[3];
+Mat posteriorP[4];
+
+//Y-data
+Mat imageFeatures;
+
+//Step 1
+Mat kern2d;
+Mat lambda0;
+Mat lambda1;
+
+double uniformComponent;
+
 void initializePriorsAndPosteriorStructures(Mat image) {
    for (int i = 0; i < 4; i++) {
        if (i < 3) {
