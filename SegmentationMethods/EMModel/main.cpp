@@ -379,49 +379,44 @@ void setDataFromFrame(Mat image) {
         }
     }
 }
-
-
+int t3;
 void updatePriorsAndPosteriors(Mat image) {
-    //Calculate Posterior
-    double div0 = sqrt(cv::determinant(2*M_PI*covars[0]));
-    double div1 = sqrt(cv::determinant(2*M_PI*covars[1]));
-    double div2 = sqrt(cv::determinant(2*M_PI*covars[2]));
-    int index = 0;
     //Make sure matrices are well conditioned
     int result0 = invert(covars[0]+Mat::eye(5,5,CV_64F).mul(covars[0])*1e-10, icovars[0]);
     int result1 = invert(covars[1]+Mat::eye(5,5,CV_64F).mul(covars[1])*1e-10, icovars[1]);
     int result2 = invert(covars[2]+Mat::eye(5,5,CV_64F).mul(covars[2])*1e-10, icovars[2]);
     assert(result0 && result1 && result2);
-    for (int row = 0; row < image.rows; row++) {
-        for (int col = 0; col < image.cols; col++) {
-            double mah0 = cv::Mahalanobis(imageFeatures.row(index),means[0], icovars[0]);
-            double mah1 = cv::Mahalanobis(imageFeatures.row(index),means[1], icovars[1]);
-            double mah2 = cv::Mahalanobis(imageFeatures.row(index),means[2], icovars[2]);
 
-            double pri0 = imagePriors[0].at<double>(row,col) * exp(-.5*mah0*mah0)/div0;
-            double pri1 = imagePriors[1].at<double>(row,col) * exp(-.5*mah1*mah1)/div1;
-            double pri2 = imagePriors[2].at<double>(row,col) * exp(-.5*mah2*mah2)/div2;
-            double pri3 = uniformComponent;
-            double priSum = pri0 + pri1 + pri2 + pri3;
+    Mat priMultMat[4];
+    Mat priSum = Mat::zeros(image.rows, image.cols, CV_64F);
+    Mat mahalanobis;
+    for (int i = 0; i < 3; i++) {
+        Mat meanRepeated = cv::repeat(means[i], image.rows*image.cols, 1);
+        Mat meanDiff = imageFeatures-meanRepeated;
 
-            posteriorP[0].at<double>(row,col) = pri0/priSum;
-            posteriorP[1].at<double>(row,col) = pri1/priSum;
-            posteriorP[2].at<double>(row,col) = pri2/priSum;
-            posteriorP[3].at<double>(row,col) = pri3/priSum;
+        mahalanobis = (meanDiff*icovars[i]).mul(meanDiff);
+        cv::reduce(mahalanobis,mahalanobis,1,CV_REDUCE_SUM, CV_64F);
+        cv::sqrt(mahalanobis, mahalanobis);
+        mahalanobis = mahalanobis.reshape(0, image.rows);
 
-            assert(posteriorP[0].at<double>(row,col) >= 0 &&
-                    posteriorP[1].at<double>(row,col) >= 0 &&
-                    posteriorP[2].at<double>(row,col) >= 0 &&
-                    posteriorP[3].at<double>(row,col) >= 0);
-
-            index++;
-        }
+        cv::exp(-.5*(mahalanobis.mul(mahalanobis)), priMultMat[i]);
+        priMultMat[i] = imagePriors[i].mul(priMultMat[i]/sqrt(cv::determinant(2*M_PI*covars[i])));
+        add(priSum, priMultMat[i], priSum);
     }
+
+    priMultMat[3] = Mat::ones(image.rows, image.cols, CV_64F)*uniformComponent;
+    add(priSum, priMultMat[3], priSum);
+
+    posteriorP[0] = priMultMat[0]/priSum;
+    posteriorP[1] = priMultMat[1]/priSum;
+    posteriorP[2] = priMultMat[2]/priSum;
+    posteriorP[3] = priMultMat[3]/priSum;
 
     //Update prior using S and Q
     Mat SMat[3];
     Mat normalizingMatS = Mat::zeros(image.rows, image.cols, CV_64F);
     Mat normalizingMatQ= Mat::zeros(image.rows, image.cols, CV_64F);
+    int t1 = getTickCount();
     for (int i = 0; i < 3; i++) {
         SMat[i] = Mat::zeros(image.rows, image.cols, CV_64F);
         cv::filter2D(imagePriors[i], SMat[i], -1, lambda0.clone(),Point(-1, -1), 0, BORDER_REPLICATE);
@@ -438,6 +433,8 @@ void updatePriorsAndPosteriors(Mat image) {
         cv::filter2D(posteriorQ[i], posteriorQ[i], -1, lambda1.clone(), Point(-1, -1), 0, BORDER_REPLICATE);
         imagePriors[i] = (SMat[i] + posteriorQ[i])/4.0;
     }
+    int t2 = getTickCount();
+    t3 += (t2-t1);
 }
 
 void updateGaussianParameters(Mat image) {
@@ -455,14 +452,24 @@ void updateGaussianParameters(Mat image) {
        posteriorQReshaped = posteriorQReshaped.reshape(0, image.rows*image.cols);
        posteriorQReshaped  = cv::repeat(posteriorQReshaped, 1, 5);
        meanDiff = imageFeatures-meanRepeated;
+
+       //EIGEN NOT SO HELPFUL, TIME TO CONVERT IS TOO LONG
+       //Eigen::MatrixXd X = Eigen::MatrixXd(meanDiff.rows,meanDiff.cols);
+       //Eigen::MatrixXd Q = Eigen::MatrixXd(posteriorQReshaped.rows,posteriorQReshaped.cols);
+       //cv::cv2eigen(meanDiff, X);
+       //cv::cv2eigen(posteriorQReshaped, Q);
+       //Eigen::MatrixXd result = (1.0/Bk)*(X.array()*Q.array()).matrix().transpose()*X;
+       //cv::eigen2cv(result, covarOpt);
+
        transpose(meanDiff.mul(posteriorQReshaped), meanDiffT);
        covarOpt = (1.0/Bk)*meanDiffT*meanDiff;
-       cv::reduce(imageFeatures.mul(posteriorQReshaped), featureSum, 0, CV_REDUCE_SUM, CV_64F);
-       assert(covarOpt.rows == 5 && covarOpt.cols == 5);
-       assert(featureSum.rows == 1 && featureSum.cols == 5);
 
-        //Update mean
+       cv::reduce(imageFeatures.mul(posteriorQReshaped), featureSum, 0, CV_REDUCE_SUM, CV_64F);
        meanOpt = (1.0/Bk)*featureSum;
+
+       assert(covarOpt.rows == 5 && covarOpt.cols == 5);
+       assert(meanOpt.rows == 1 && meanOpt.cols == 5);
+
 #if USE_WEAK_PRIOR == 1
        invert(icovars[i] + ipositionCovPriors[i], lambda);
        Mat intermediateTerm = meanOpt*icovars[i]+positionMeanPriors[i]*ipositionCovPriors[i];
@@ -529,20 +536,26 @@ void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
     int redUnder = 0;
     int totalGreen = 0;
     int greenUnder = 0;
+    double* posteriorRows[4];
     for (int row = 0; row < image.rows; row++) {
+        posteriorRows[0] = posteriorP[0].ptr<double>(row);
+        posteriorRows[1] = posteriorP[1].ptr<double>(row);
+        posteriorRows[2] = posteriorP[2].ptr<double>(row);
+        posteriorRows[3] = posteriorP[3].ptr<double>(row);
+        unsigned char* obstacleMapRow = obstacleMap.ptr<uint8_t>(row);
         for (int col = 0; col < image.cols; col++) {
             Vec3b color;
             double probability = 0.0;
             int maxIndex = -1;
             for (int i = 0; i < 3; i++) {
-                double curProb = posteriorP[i].at<double>(row,col);
+                double curProb = posteriorRows[i][col];
                 if (curProb > probability) {
                     probability = curProb;
                     maxIndex = i;
                 }
             }
-            if (posteriorP[3].at<double>(row,col) > probability)
-                obstacleMap.at<unsigned char>(row,col) = 255;
+            if (posteriorRows[3][col] > probability)
+                obstacleMapRow[col] = 255;
 
             int curHPoint = (rightIntercept-leftIntercept)*((double)col/image.cols)+leftIntercept;
             switch(maxIndex) {
@@ -709,11 +722,20 @@ int main(int argc, char *argv[])
     lambda1 = lambda0.clone();
     lambda1.at<double>(kernelWidth/2,kernelWidth/2) = 1.0;
 
-    initializePriorsAndPosteriorStructures(image);
+    //For use by method
+    Mat zones;
+    Mat obstacles;
+    std::map<int,int> shoreLine;
+    bool useHorizon = true;
+    Mat obstaclesInWater;
+    Mat totalDiff;
+    Mat sqrtOldP, sqrtNewP;
 
-    //Initialize model
+    initializePriorsAndPosteriorStructures(image);
     imshow("Orig", image);
+
     int64 t1 = getTickCount();
+    //Initialize model
     cvtColor(image, image, CV_BGR2HSV);
     setDataFromFrame(image);
     initializeLabelPriors(image);
@@ -727,9 +749,8 @@ int main(int argc, char *argv[])
 
         updatePriorsAndPosteriors(image);
         //Now check for convergence
-        Mat totalDiff = Mat::zeros(image.rows, image.cols, CV_64F);
+        totalDiff = Mat::zeros(image.rows, image.cols, CV_64F);
         for (int i = 0; i < 3; i++) {
-            Mat sqrtOldP, sqrtNewP;
             cv::sqrt(oldPriors[i], sqrtOldP);
             cv::sqrt(imagePriors[i], sqrtNewP);
             totalDiff = totalDiff + sqrtOldP-sqrtNewP;
@@ -744,17 +765,11 @@ int main(int argc, char *argv[])
         updateGaussianParameters(image);
         iter++;
     }
-    int64 t2 = getTickCount();
-    Mat zones;
-    Mat obstacles;
     drawMapping(image, zones, obstacles, false);
-    std::map<int,int> shoreLine;
-    bool useHorizon = true;
     findShoreLine(zones, shoreLine, useHorizon, false);
-    Mat obstaclesInWater;
     findObstacles(shoreLine, obstacles, obstaclesInWater, false);
-
-    std::cout << (t2-t1)/getTickFrequency() << std::endl;
+    int64 t2 = getTickCount();
+    std::cout << (t3)/getTickFrequency() << std::endl;
 
     resize(obstaclesInWater, obstaclesInWater, Size(originalImage.cols, originalImage.rows),0,0,INTER_NEAREST);
     imshow("large obs", obstaclesInWater);
