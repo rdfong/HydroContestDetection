@@ -48,6 +48,7 @@ std::vector<vNode*> leaves;
 custom_bitset<256> diffMap;
 std::vector<vNode*> diffBins(256);
 std::vector<vNode> dummyNodes;
+const int K = 3;
 
 //score output
 ofstream scoreFile;
@@ -421,7 +422,6 @@ void passDown() {
     }
 }
 
-const int K = 3;
 void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Mat& out) {
     Mat labels;
     int numPix = boundaryPixels.size();
