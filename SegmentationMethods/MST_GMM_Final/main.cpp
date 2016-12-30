@@ -5,6 +5,9 @@
 #include <eigen3/Eigen/Dense>
 #include <opencv2/core/eigen.hpp>
 
+#include "MST.h"
+#include "GMM.h"
+
 using namespace cv;
 
 #define VIDEO 0
