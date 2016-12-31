@@ -54,7 +54,6 @@ int main(int argc, char *argv[])
     resize(originalImage, GMMimage, size);
     initializeKernelInfo(GMMimage);
     initializePriorsAndPosteriorStructures(GMMimage);
-    parseHorizonInfo(GMMimage, imageFolder+name+std::string("_horizon.txt"));
 
     //MST Initialization
     Mat gray_image, lab, mbd_image, dis_image, new_dis_image, combined;
@@ -67,12 +66,13 @@ int main(int argc, char *argv[])
     createVertexGrid(rows, cols);
     initializeDiffBins();
 
+    int t1 = getTickCount();
     //PER IMAGE GMM/MST Code
     /**********GMM CODE**********/
-    int t1 = getTickCount();
     //Initialize model
     cvtColor(GMMimage, GMMimage, CV_BGR2HSV);
     setDataFromFrame(GMMimage);
+    parseHorizonInfo(GMMimage, imageFolder+name+std::string("_horizon.txt"));
     initializeLabelPriors(GMMimage, false);
     initializeGaussianModels(GMMimage);
     runEM(GMMimage);
@@ -109,6 +109,7 @@ int main(int argc, char *argv[])
         customOtsuThreshold(combined);
         findContoursAndWriteResults(combined, originalImage, scoreFile, output+name);
     }
+
     int t2 = getTickCount();
     std::cout << "Processing Time/Image: " << (t2-t1)/getTickFrequency() << std::endl;
 
