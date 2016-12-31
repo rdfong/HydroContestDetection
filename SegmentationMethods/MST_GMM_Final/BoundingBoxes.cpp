@@ -39,7 +39,7 @@ template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {
     }
 }
 
-void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& scoreFile, std::string outputName, bool display) {
+void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& scoreFile, std::string outputName) {
    hierarchy.clear();
    contours.clear();
    boundRects.clear();
@@ -164,9 +164,6 @@ void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& sc
                              << curRect.width << " " << curRect.height <<std::endl;
        }
    }
-
-   if(display)
-       imshow("boxOutput", image);
    imwrite(outputName, image);
 }
 

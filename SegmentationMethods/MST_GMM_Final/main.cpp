@@ -17,7 +17,6 @@ std::string output;
 std::string waitString;
 std::string imageFolder;
 
-
 int main(int argc, char *argv[])
 {
 #if VIDEO == 0
@@ -42,6 +41,8 @@ int main(int argc, char *argv[])
     }
 
     imshow("Original", originalImage);
+    int cols = originalImage.cols;
+    int rows = originalImage.rows;
 
     //Initialize things for both GMM and MST
     //GMM Initialization
@@ -49,28 +50,32 @@ int main(int argc, char *argv[])
     std::map<int,int> shoreLine;
     bool useHorizon = true;
     float scale = .25;
-    Size size(scale*originalImage.cols, scale*originalImage.rows);
+    Size size(scale*cols, scale*rows);
     resize(originalImage, GMMimage, size);
     initializeKernelInfo(GMMimage);
     initializePriorsAndPosteriorStructures(GMMimage);
+    parseHorizonInfo(GMMimage, imageFolder+name+std::string("_horizon.txt"));
 
     //MST Initialization
     Mat gray_image, lab, mbd_image, dis_image, new_dis_image, combined;
-    createVertexGrid(originalImage.rows, originalImage.cols);
+    mbd_image = Mat::zeros(rows, cols, CV_32FC1);
+    dis_image = Mat::zeros(rows, cols, CV_32FC1);
+    new_dis_image = Mat::zeros(rows, cols, CV_32FC1);
+    int boundary_size = 20;
+    int num_boundary_pixels = (boundary_size*2*(rows+cols)-4*boundary_size*boundary_size);
+    std::vector<cv::Point3f> boundaryPixels(num_boundary_pixels);
+    createVertexGrid(rows, cols);
     initializeDiffBins();
 
     //PER IMAGE GMM/MST Code
     /**********GMM CODE**********/
-
     int t1 = getTickCount();
     //Initialize model
     cvtColor(GMMimage, GMMimage, CV_BGR2HSV);
-    parseHorizonInfo(GMMimage, imageFolder+name+std::string("_horizon.txt"));
     setDataFromFrame(GMMimage);
     initializeLabelPriors(GMMimage, false);
     initializeGaussianModels(GMMimage);
     runEM(GMMimage);
-
     //TODO: may not need any of this, just whatever is in posteriorP
     drawMapping(GMMimage, zones, obstacles, false);
     findShoreLine(zones, shoreLine, useHorizon, false);
@@ -78,7 +83,6 @@ int main(int argc, char *argv[])
     resize(obstaclesInWater, obstaclesInWater, Size(originalImage.cols, originalImage.rows),0,0,INTER_NEAREST);
 
     /***********MST CODE***********/
-
     //Create MST representation
     cvtColor(originalImage, gray_image, CV_BGR2GRAY );
     GaussianBlur(gray_image, gray_image, Size(5, 5), 3);
@@ -86,18 +90,11 @@ int main(int argc, char *argv[])
     createMST(gray_image);
     passUp();
     passDown();
-
     //Get boundary dissimiliary and tree distance maps
     cvtColor(originalImage, lab, CV_BGR2Lab);
-    int boundary_size = 20;
-    int num_boundary_pixels = (boundary_size*2*(gray_image.cols+gray_image.rows)-4*boundary_size*boundary_size);
-    std::vector<cv::Point3f> boundaryPixels(num_boundary_pixels);
-    mbd_image = Mat::zeros(gray_image.rows, gray_image.cols, CV_32FC1);
     getMBDImageAndBoundaryPix(lab, mbd_image, boundaryPixels, boundary_size);
-    dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
     getDissimiliarityImage(boundaryPixels, lab, dis_image);
     treeFilter(dis_image, mbd_image, 5, 0.5);
-    new_dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
     bilateralFilter(dis_image, new_dis_image, 5, 0.5, 0.5);
 
     //combine images and normalize
@@ -107,13 +104,13 @@ int main(int argc, char *argv[])
     combined /= maxVal;
 
     //Post process and write results
-   if (maxVal-minVal > 0.75) {
+    if (maxVal-minVal > 0.75) {
         postProcessing(combined);
         customOtsuThreshold(combined);
-        findContoursAndWriteResults(combined, originalImage, scoreFile, output+name, true);
-   }
-   int t2 = getTickCount();
-   std::cout << "Processing Time/Image: " << (t2-t1)/getTickFrequency() << std::endl;
+        findContoursAndWriteResults(combined, originalImage, scoreFile, output+name);
+    }
+    int t2 = getTickCount();
+    std::cout << "Processing Time/Image: " << (t2-t1)/getTickFrequency() << std::endl;
 
    //Display results
    imshow("GMM Obstacles", obstaclesInWater);
