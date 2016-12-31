@@ -28,8 +28,36 @@ Mat lambda0;
 Mat lambda1;
 
 double uniformComponent;
+int leftIntercept, rightIntercept;
 
-void initializePriorsAndPosteriorStructures(Mat image) {
+void parseHorizonInfo(Mat& image, std::string horizonFileName) {
+    std::ifstream horizonFile;
+    horizonFile.open(horizonFileName);
+    std::string line;
+    std::getline(horizonFile, line);
+    std::istringstream iss(line);
+    int hLeftIntercept, hRightIntercept, hWidth, hHeight;
+    iss >> hLeftIntercept >> hRightIntercept >> hWidth >> hHeight;
+    horizonFile.close();
+    leftIntercept = hLeftIntercept*image.rows/(double)hHeight;
+    rightIntercept = hRightIntercept*image.rows/(double)hHeight;
+}
+
+void initializeKernelInfo(Mat& image) {
+    int kernelWidth = (2*((int)(.08*image.rows)))+1;
+    Mat kern = getGaussianKernel(kernelWidth, kernelWidth/1.5);
+    Mat kernT;
+    transpose(kern, kernT);
+    kern2d = kern*kernT;
+    lambda0 = kern2d.clone();
+    lambda0.at<double>(kernelWidth/2, kernelWidth/2) = 0.0;
+    double zeroSum = 1.0/cv::sum(lambda0)[0];
+    lambda0 = lambda0.clone()*zeroSum;
+    lambda1 = lambda0.clone();
+    lambda1.at<double>(kernelWidth/2,kernelWidth/2) = 1.0;
+}
+
+void initializePriorsAndPosteriorStructures(Mat& image) {
    for (int i = 0; i < 4; i++) {
        if (i < 3) {
            imagePriors[i] = Mat::zeros(image.rows, image.cols, CV_64F);
@@ -86,11 +114,10 @@ void initializePriorsAndPosteriorStructures(Mat image) {
 #endif
 }
 
-void initializeLabelPriors(Mat image, bool usePrevious) {
+void initializeLabelPriors(Mat& image, bool usePrevious) {
    if (usePrevious) {
        //TODO: Untested on video due to lack of real time horizon data
        double nonUniformSum = 1.0-uniformComponent;
-       std::cout << nonUniformSum << std::endl;
        Mat QSum = posteriorQ[0] + posteriorQ[1] + posteriorQ[2];
        for (int i = 0; i < 3; i++) {
            //normalize posteriorQ, blur, and set prior equal to
@@ -113,7 +140,7 @@ void initializeLabelPriors(Mat image, bool usePrevious) {
    }
 }
 
-void initializeGaussianModels(Mat image) {
+void initializeGaussianModels(Mat& image) {
    //If we have confident horizon line estimatse we can have good estimates
    //If do not however we assume the height spread for the gaussians, 0.0-0.2, 0.2-0.4,0.6-1.0
    //It is assumed here that the horizon line lies between 0.4 and 0.6
@@ -190,7 +217,7 @@ void initializeGaussianModels(Mat image) {
    cv::calcCovarMatrix(regionMats[2], covars[2], means[2], CV_COVAR_NORMAL | CV_COVAR_ROWS | CV_COVAR_SCALE);
 }
 
-void setDataFromFrame(Mat image) {
+void setDataFromFrame(Mat& image) {
    imageFeatures = Mat::zeros(image.rows*image.cols, 5, CV_64F);
    int index = 0;
    for (int row = 0; row < image.rows; row++) {
@@ -207,7 +234,7 @@ void setDataFromFrame(Mat image) {
    }
 }
 
-void updatePriorsAndPosteriors(Mat image) {
+void updatePriorsAndPosteriors(Mat& image) {
    //Make sure matrices are well conditioned
    int result0 = invert(covars[0]+Mat::eye(5,5,CV_64F).mul(covars[0])*1e-10, icovars[0]);
    int result1 = invert(covars[1]+Mat::eye(5,5,CV_64F).mul(covars[1])*1e-10, icovars[1]);
@@ -261,7 +288,7 @@ void updatePriorsAndPosteriors(Mat image) {
    }
 }
 
-void updateGaussianParameters(Mat image) {
+void updateGaussianParameters(Mat& image) {
    Mat lambda, meanDiff, meanDiffT, featureSum;
    Mat meanOpt, covarOpt;
    //Use equations 10 and 11
@@ -276,14 +303,6 @@ void updateGaussianParameters(Mat image) {
       posteriorQReshaped = posteriorQReshaped.reshape(0, image.rows*image.cols);
       posteriorQReshaped  = cv::repeat(posteriorQReshaped, 1, 5);
       meanDiff = imageFeatures-meanRepeated;
-
-      //EIGEN NOT SO HELPFUL, TIME TO CONVERT IS TOO LONG
-      //Eigen::MatrixXd X = Eigen::MatrixXd(meanDiff.rows,meanDiff.cols);
-      //Eigen::MatrixXd Q = Eigen::MatrixXd(posteriorQReshaped.rows,posteriorQReshaped.cols);
-      //cv::cv2eigen(meanDiff, X);
-      //cv::cv2eigen(posteriorQReshaped, Q);
-      //Eigen::MatrixXd result = (1.0/Bk)*(X.array()*Q.array()).matrix().transpose()*X;
-      //cv::eigen2cv(result, covarOpt);
 
       transpose(meanDiff.mul(posteriorQReshaped), meanDiffT);
       covarOpt = (1.0/Bk)*meanDiffT*meanDiff;
@@ -306,7 +325,7 @@ void updateGaussianParameters(Mat image) {
    }
 }
 
-void findShoreLine(Mat coloredImage, std::map<int, int>& shoreLine, bool useHorizon, bool display) {
+void findShoreLine(Mat& coloredImage, std::map<int, int>& shoreLine, bool useHorizon, bool display) {
    if (useHorizon) {
        for (int col = 0; col < coloredImage.cols; col++) {
            int curHPoint = (rightIntercept-leftIntercept)*((double)col/coloredImage.cols)+leftIntercept;
@@ -350,7 +369,7 @@ void findShoreLine(Mat coloredImage, std::map<int, int>& shoreLine, bool useHori
        imshow("Water Zone", coloredImage);
 }
 
-void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
+void drawMapping(Mat& image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
    zoneMapping = image.clone();
    for (int i = 0; i < 3; i++) {
        GaussianBlur(posteriorP[i],posteriorP[i],Size(3,3), 3.0, 3.0, BORDER_REPLICATE);
@@ -489,3 +508,32 @@ void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstacles
 }
 
 
+int runEM(Mat& image) {
+    Mat totalDiff;
+    Mat sqrtOldP, sqrtNewP;
+    int iter = 0;
+    while (iter < 5) {
+        oldPriors[0] = imagePriors[0].clone();
+        oldPriors[1] = imagePriors[1].clone();
+        oldPriors[2] = imagePriors[2].clone();
+
+        updatePriorsAndPosteriors(image);
+        //Now check for convergence
+        totalDiff = Mat::zeros(image.rows, image.cols, CV_64F);
+        for (int i = 0; i < 3; i++) {
+            cv::sqrt(oldPriors[i], sqrtOldP);
+            cv::sqrt(imagePriors[i], sqrtNewP);
+            totalDiff = totalDiff + sqrtOldP-sqrtNewP;
+        }
+        //sort totalDiff in ascending order and take mean of second half
+        totalDiff = totalDiff.reshape(0,1);
+        cv::sort(totalDiff, totalDiff, CV_SORT_DESCENDING);
+        double meanDiff = cv::sum(totalDiff(Range(0,1), Range(0, totalDiff.cols/2)))[0]/(totalDiff.cols/2);
+        if (meanDiff <= 0.01) {
+            break;
+        }
+        updateGaussianParameters(image);
+        iter++;
+    }
+    return iter;
+}

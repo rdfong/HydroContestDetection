@@ -1,4 +1,5 @@
 #include "MST.h"
+#include "custom_bitset.h"
 
 //root is vNodes.begin()
 std::vector<vNode> vNodes;
@@ -9,6 +10,8 @@ std::vector<vNode> dummyNodes;
 const int K = 3;
 
 void createVertexGrid(int rows, int cols) {
+    vNodes.resize(rows*cols);
+
     auto v_col = vNodes.begin();
     auto v_prev_row = vNodes.begin();
     int row, col;
@@ -500,4 +503,18 @@ void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
         }
     }
     dis_image = result;
+}
+
+void postProcessing(Mat& combined) {
+    Mat intermediate;
+    Mat rawCombined = combined.clone();
+    combined = rawCombined*255;
+    combined.convertTo(combined, CV_8U);
+
+    double tau = threshold(combined, intermediate, 0, 255, THRESH_OTSU);
+    int gamma = 20;
+    cv::exp(-gamma*(rawCombined-tau/255.0), intermediate);
+    combined = 1.0/(1.0+intermediate);
+    combined*=255;
+    combined.convertTo(combined, CV_8U);
 }

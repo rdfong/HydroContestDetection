@@ -1,4 +1,6 @@
 #include "BoundingBoxes.h"
+//FILE IO
+std::ifstream horizonFile;
 
 //SETUP FOR BOX SELECTION
 int imgCount = 1;
@@ -37,7 +39,7 @@ template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {
     }
 }
 
-void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, bool display) {
+void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& scoreFile, std::string outputName, bool display) {
    hierarchy.clear();
    contours.clear();
    boundRects.clear();
@@ -165,7 +167,7 @@ void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, bool display) {
 
    if(display)
        imshow("boxOutput", image);
-   imwrite(output+name, image);
+   imwrite(outputName, image);
 }
 
 

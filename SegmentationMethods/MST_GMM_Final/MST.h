@@ -50,3 +50,4 @@ void passDown();
 void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Mat& out);
 void getMBDImageAndBoundaryPix(Mat& color_im, Mat& mbd_image, std::vector<cv::Point3f>& boundaryPixels, int boundarySize);
 void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD);
+void postProcessing(Mat& combined);
