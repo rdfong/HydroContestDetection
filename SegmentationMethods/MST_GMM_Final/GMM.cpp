@@ -28,6 +28,8 @@ Mat lambda0;
 Mat lambda1;
 
 double uniformComponent;
+
+int hLeftIntercept, hRightIntercept, hWidth, hHeight;
 int leftIntercept, rightIntercept;
 
 void parseHorizonInfo(Mat& image, std::string horizonFileName) {
@@ -36,7 +38,6 @@ void parseHorizonInfo(Mat& image, std::string horizonFileName) {
     std::string line;
     std::getline(horizonFile, line);
     std::istringstream iss(line);
-    int hLeftIntercept, hRightIntercept, hWidth, hHeight;
     iss >> hLeftIntercept >> hRightIntercept >> hWidth >> hHeight;
     horizonFile.close();
     leftIntercept = hLeftIntercept*image.rows/(double)hHeight;
@@ -325,48 +326,49 @@ void updateGaussianParameters(Mat& image) {
    }
 }
 
-void findShoreLine(Mat& coloredImage, std::map<int, int>& shoreLine, bool useHorizon, bool display) {
-   if (useHorizon) {
-       for (int col = 0; col < coloredImage.cols; col++) {
-           int curHPoint = (rightIntercept-leftIntercept)*((double)col/coloredImage.cols)+leftIntercept;
-           coloredImage.at<Vec3b>(curHPoint,col) = Vec3b(0,0,0);
-           shoreLine[col] = curHPoint;
+void findHorizonLine(std::vector<int>& shoreLine, cv::Size s) {
+    int sLeftIntercept = (double)s.height/hHeight*hLeftIntercept;
+    int sRightIntercept = (double)s.height/hHeight*hRightIntercept;
+    for (int col = 0; col < s.width; col++) {
+        int curHPoint = (sRightIntercept-sLeftIntercept)*((double)col/s.width)+sLeftIntercept;
+        shoreLine[col] = curHPoint;
+    }
+}
+
+void findShoreLine(Mat& coloredImage, std::vector<int>& shoreLine, bool display) {
+    float areaRatioLimit = 0.1;
+    cv::Scalar lowerb = cv::Scalar(0,0,0);
+    cv::Scalar upperb = cv::Scalar(255,0,0);
+    Mat mask;
+    cv::inRange(coloredImage, lowerb, upperb, mask);
+    Mat labels;
+    Mat stats;
+    Mat centroids;
+    int connectedCount = cv::connectedComponentsWithStats(mask, labels, stats, centroids);
+    Mat waterBinary = Mat::zeros(mask.rows, mask.cols, CV_8U);
+    for (int label = 0; label < connectedCount; label++) {
+       Mat temp;
+       int area = stats.at<int>(label, CC_STAT_AREA);
+       if ((float)area/(mask.rows * mask.cols) > areaRatioLimit) {
+           cv::inRange(labels, Scalar(label), Scalar(label), temp);
+           add(waterBinary, temp, waterBinary,mask);
        }
-   } else {
-       float areaRatioLimit = 0.1;
-       cv::Scalar lowerb = cv::Scalar(0,0,0);
-       cv::Scalar upperb = cv::Scalar(255,0,0);
-       Mat mask;
-       cv::inRange(coloredImage, lowerb, upperb, mask);
-       Mat labels;
-       Mat stats;
-       Mat centroids;
-       int connectedCount = cv::connectedComponentsWithStats(mask, labels, stats, centroids);
-       Mat waterBinary = Mat::zeros(mask.rows, mask.cols, CV_8U);
-       for (int label = 0; label < connectedCount; label++) {
-           Mat temp;
-           int area = stats.at<int>(label, CC_STAT_AREA);
-           if ((float)area/(mask.rows * mask.cols) > areaRatioLimit) {
-               cv::inRange(labels, Scalar(label), Scalar(label), temp);
-               add(waterBinary, temp, waterBinary,mask);
+    }
+    //Anything white component that is above whose lowest pixel starts at the black line or below is considered as an obstacle
+    for (int col = 0; col < waterBinary.cols; col++) {
+       int row;
+       for (row = 0; row < waterBinary.rows; row++) {
+           if (waterBinary.at<uint8_t>(row, col) == 255) {
+               break;
            }
        }
-       //Anything white component that is above whose lowest pixel starts at the black line or below is considered as an obstacle
-       for (int col = 0; col < waterBinary.cols; col++) {
-           int row;
-           for (row = 0; row < waterBinary.rows; row++) {
-               if (waterBinary.at<uint8_t>(row, col) == 255) {
-                   break;
-               }
-           }
-           row = std::max(--row,0);
-           coloredImage.at<Vec3b>(row,col) = Vec3b(0,0,0);
-           shoreLine[col] = row;
-       }
-   }
+       row = std::max(--row,0);
+       coloredImage.at<Vec3b>(row,col) = Vec3b(0,0,0);
+       shoreLine[col] = row;
+    }
 
    if (display)
-       imshow("Water Zone", coloredImage);
+       imshow("Shore Line", coloredImage);
 }
 
 void drawMapping(Mat& image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
@@ -457,7 +459,7 @@ void drawMapping(Mat& image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
    }
 }
 
-void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display) {
+void findObstacles(std::vector<int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display) {
    //simply return any white connected white blobs that are under the zone shift
    //do it by scanning up, once the line has been passed, switch on a flag such that it tends once the current run ends
    obstaclesInWater = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);

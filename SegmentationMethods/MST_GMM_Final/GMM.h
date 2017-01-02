@@ -1,6 +1,7 @@
 #include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
 #include <opencv2/core/eigen.hpp>
+#include <vector>
 using namespace cv;
 
 #define USE_WEAK_PRIOR 0
@@ -13,7 +14,8 @@ void initializeGaussianModels(Mat& image);
 void setDataFromFrame(Mat& image);
 void updatePriorsAndPosteriors(Mat& image);
 void updateGaussianParameters(Mat& image);
-void findShoreLine(Mat& coloredImage, std::map<int, int>& shoreLine, bool useHorizon, bool display);
+void findHorizonLine(std::vector<int>& shoreLine, cv::Size horizonSize);
+void findShoreLine(Mat& coloredImage, std::vector<int>& shoreLine, bool display);
 void drawMapping(Mat& image, Mat& zoneMapping, Mat& obstacleMap, bool display);
-void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display);
+void findObstacles(std::vector<int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display);
 int runEM(Mat& image);

@@ -47,19 +47,22 @@ int main(int argc, char *argv[])
     //Initialize things for both GMM and MST
     //GMM Initialization
     Mat zones, obstacles, obstaclesInWater, GMMimage;
-    std::map<int,int> shoreLine;
     bool useHorizon = true;
     float scale = .25;
     Size size(scale*cols, scale*rows);
     resize(originalImage, GMMimage, size);
     initializeKernelInfo(GMMimage);
     initializePriorsAndPosteriorStructures(GMMimage);
+    std::vector<int> shoreLine;
+    shoreLine.resize(GMMimage.cols);
 
     //MST Initialization
     Mat gray_image, lab, mbd_image, dis_image, new_dis_image, combined;
     mbd_image = Mat::zeros(rows, cols, CV_32FC1);
     dis_image = Mat::zeros(rows, cols, CV_32FC1);
     new_dis_image = Mat::zeros(rows, cols, CV_32FC1);
+    std::vector<int> horizonLine;
+    horizonLine.resize(originalImage.cols);
     int boundary_size = 20;
     int num_boundary_pixels = (boundary_size*2*(rows+cols)-4*boundary_size*boundary_size);
     std::vector<cv::Point3f> boundaryPixels(num_boundary_pixels);
@@ -77,10 +80,14 @@ int main(int argc, char *argv[])
     initializeGaussianModels(GMMimage);
     runEM(GMMimage);
     //TODO: may not need any of this, just whatever is in posteriorP
+    //drawmapping should return seed node indices
     drawMapping(GMMimage, zones, obstacles, false);
-    findShoreLine(zones, shoreLine, useHorizon, false);
+    if (useHorizon) {
+        findHorizonLine(shoreLine, cv::Size(zones.cols, zones.rows));
+    } else {
+        findShoreLine(zones, shoreLine, false);
+    }
     findObstacles(shoreLine, obstacles, obstaclesInWater, false);
-    resize(obstaclesInWater, obstaclesInWater, Size(originalImage.cols, originalImage.rows),0,0,INTER_NEAREST);
 
     /***********MST CODE***********/
     //Create MST representation
@@ -103,11 +110,14 @@ int main(int argc, char *argv[])
     cv::minMaxLoc(combined, &minVal, &maxVal);
     combined /= maxVal;
 
+    Mat obstaclesInWaterMST;
     //Post process and write results
     if (maxVal-minVal > 0.75) {
         postProcessing(combined);
         customOtsuThreshold(combined);
-        findContoursAndWriteResults(combined, originalImage, scoreFile, output+name);
+        findHorizonLine(horizonLine, cv::Size(combined.cols, combined.rows));
+        findObstacles(horizonLine, combined, obstaclesInWaterMST, true);
+        findContoursAndWriteResults(obstaclesInWaterMST, originalImage, scoreFile, output+name);
     }
 
     int t2 = getTickCount();
