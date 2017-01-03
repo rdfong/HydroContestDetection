@@ -46,8 +46,7 @@ int main(int argc, char *argv[])
 
     //Initialize things for both GMM and MST
     //GMM Initialization
-    Mat zones, obstacles, obstaclesInWater, GMMimage;
-    bool useHorizon = true;
+    Mat seedNodes, obstacles, GMMimage;
     float scale = .25;
     Size size(scale*cols, scale*rows);
     resize(originalImage, GMMimage, size);
@@ -79,21 +78,16 @@ int main(int argc, char *argv[])
     initializeLabelPriors(GMMimage, false);
     initializeGaussianModels(GMMimage);
     runEM(GMMimage);
-    //TODO: may not need any of this, just whatever is in posteriorP
-    //drawmapping should return seed node indices
-    drawMapping(GMMimage, zones, obstacles, false);
-    if (useHorizon) {
-        findHorizonLine(shoreLine, cv::Size(zones.cols, zones.rows));
-    } else {
-        findShoreLine(zones, shoreLine, false);
-    }
-    findObstacles(shoreLine, obstacles, obstaclesInWater, false);
+    findSeedNodes(GMMimage, seedNodes, true);
+    resize(seedNodes, seedNodes, Size(originalImage.cols, originalImage.rows), 0, 0, INTER_NEAREST);
+    imshow("sNodes", seedNodes);
 
     /***********MST CODE***********/
     //Create MST representation
     cvtColor(originalImage, gray_image, CV_BGR2GRAY );
     GaussianBlur(gray_image, gray_image, Size(5, 5), 3);
     updateVertexGridWeights(gray_image);
+    setSeedNodes(seedNodes);
     createMST(gray_image);
     passUp();
     passDown();
@@ -105,6 +99,8 @@ int main(int argc, char *argv[])
     bilateralFilter(dis_image, new_dis_image, 5, 0.5, 0.5);
 
     //combine images and normalize
+    obstacles.convertTo(obstacles, CV_32F);
+    obstacles = obstacles/255;
     combined = mbd_image + new_dis_image;
     double minVal, maxVal;
     cv::minMaxLoc(combined, &minVal, &maxVal);
@@ -124,7 +120,6 @@ int main(int argc, char *argv[])
     std::cout << "Processing Time/Image: " << (t2-t1)/getTickFrequency() << std::endl;
 
    //Display results
-   imshow("GMM Obstacles", obstaclesInWater);
    imshow("Tree Distance Image", mbd_image);
    imshow("Boundary Dissimiliarty", new_dis_image);
    imshow("Combined MST result", combined);

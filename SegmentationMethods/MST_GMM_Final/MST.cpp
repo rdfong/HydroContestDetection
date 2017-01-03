@@ -26,22 +26,18 @@ void createVertexGrid(int rows, int cols) {
         nextNode = &*v_next;
         curNode->neighbours[RIGHT] = nextNode;
         nextNode->neighbours[LEFT] = curNode;
-        curNode->seedNode = true;
         v_col++;
     }
     //for the last element in the first row
     curNode = &*v_col;
     curNode->row = 0;
     curNode->col = col;
-    curNode->seedNode = true;
     v_col++;
 
     //Loop through vertex grid, connecting up and across vertices
     for (row = 1; row < rows; row++) {
         for (col = 0; col < cols-1; col++) {
             curNode = &*v_col;
-            if (col == 0 || row == rows-1)
-                curNode->seedNode = true;
             curNode->row = row;
             curNode->col = col;
             //set vertical neighbour
@@ -62,7 +58,6 @@ void createVertexGrid(int rows, int cols) {
         curNode = &*v_col;
         curNode->row = row;
         curNode->col = col;
-        curNode->seedNode = true;
 
         nextNode = &*v_prev_row;
         curNode->neighbours[UP] = nextNode;
@@ -87,12 +82,13 @@ void resetNodes() {
         node->value = 0;
         node->pathMax = 0;
         node->pathMin = 0;
+        node->seedNode = false;
         node->distance = UINT8_MAX+1;
         v_it++;
     }
 }
 
-void updateVertexGridWeights(Mat im) {
+void updateVertexGridWeights(Mat& im) {
     //clear all the arrays but vNodes
     leaves.clear();
     assert(diffMap.none());
@@ -166,6 +162,26 @@ void updateVertexGridWeights(Mat im) {
         ++im_it;
         ++prev_row_im_it;
     }
+}
+
+void setSeedNodes(Mat &seedNodeMap) {
+    auto v_it = vNodes.begin();
+    int count = 0;
+    vNode *node = &*v_it;
+    //We have to set upper left corner to a seed node
+    node->seedNode = true;
+    for (int row = 0; row < seedNodeMap.rows; row++) {
+        unsigned char* seedNodeRow = seedNodeMap.ptr<uint8_t>(row);
+        for (int col = 0; col < seedNodeMap.cols; col++) {
+            node = &*v_it;
+            if (seedNodeRow[col] == 255) {
+                node->seedNode = true;
+                count++;
+            }
+            v_it++;
+        }
+    }
+    std::cout << count << std::endl;
 }
 
 void initializeDiffBins() {
@@ -252,7 +268,7 @@ vNode* extractMin() {
     return min;
 }
 
-void createMST(Mat im) {
+void createMST(Mat& im) {
     assert(im.rows >= 2 && im.cols >= 2);
     vNode *root = &*vNodes.begin();
     //special case the root since it has no parent node
@@ -352,7 +368,7 @@ void passDown() {
         if (curNode->seedNode) {
             curNode->distance = 0;
             curNode->pathMin = curNode->pathMax = curNode->value;
-        } else {
+        } else if (curNode->parentEdge != NONE){
             vNode *parentNode = curNode->neighbours[curNode->parentEdge];
             int pathMin, pathMax;
             if (curNode->value < parentNode->pathMin) {

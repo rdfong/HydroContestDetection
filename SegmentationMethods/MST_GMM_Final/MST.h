@@ -38,13 +38,14 @@ struct vNode {
 
 void createVertexGrid(int rows, int cols);
 void resetNodes();
-void updateVertexGridWeights(Mat im);
+void updateVertexGridWeights(Mat& im);
+void setSeedNodes(Mat& seedNodeMap);
 void initializeDiffBins();
 void visualizeMST(Mat im);
 void insert(int weight, vNode** n);
 void remove(vNode* node);
 vNode* extractMin();
-void createMST(Mat im);
+void createMST(Mat& im);
 void passUp();
 void passDown();
 void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Mat& out);

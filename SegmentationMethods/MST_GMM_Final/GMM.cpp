@@ -371,23 +371,17 @@ void findShoreLine(Mat& coloredImage, std::vector<int>& shoreLine, bool display)
        imshow("Shore Line", coloredImage);
 }
 
-void drawMapping(Mat& image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
-   zoneMapping = image.clone();
-   for (int i = 0; i < 3; i++) {
-       GaussianBlur(posteriorP[i],posteriorP[i],Size(3,3), 3.0, 3.0, BORDER_REPLICATE);
-   }
-   obstacleMap = Mat::zeros(zoneMapping.rows, zoneMapping.cols, CV_8U);
-   int totalRed = 0;
-   int redUnder = 0;
-   int totalGreen = 0;
-   int greenUnder = 0;
+void findSeedNodes(Mat& image, Mat& seedNodes, bool display) {
+   Mat seedNodesP = Mat::zeros(image.rows, image.cols, CV_64F);
+   seedNodes = Mat::ones(image.rows, image.cols, CV_8U)*255;
+   Mat zoneMapping = image.clone();
+
    double* posteriorRows[4];
    for (int row = 0; row < image.rows; row++) {
        posteriorRows[0] = posteriorP[0].ptr<double>(row);
        posteriorRows[1] = posteriorP[1].ptr<double>(row);
        posteriorRows[2] = posteriorP[2].ptr<double>(row);
        posteriorRows[3] = posteriorP[3].ptr<double>(row);
-       unsigned char* obstacleMapRow = obstacleMap.ptr<uint8_t>(row);
        for (int col = 0; col < image.cols; col++) {
            Vec3b color;
            double probability = 0.0;
@@ -399,63 +393,36 @@ void drawMapping(Mat& image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
                    maxIndex = i;
                }
            }
-           if (posteriorRows[3][col] > probability)
-               obstacleMapRow[col] = 255;
+           if (posteriorRows[3][col] > probability) {
+               maxIndex = 3;
+               probability = 0.0;
+           }
 
-           int curHPoint = (rightIntercept-leftIntercept)*((double)col/image.cols)+leftIntercept;
            switch(maxIndex) {
            case 0:
                color = Vec3b(0, 0, 255);
-               totalRed++;
-               if (curHPoint < row)
-                   redUnder++;
                break;
            case 1:
                color = Vec3b(0, 255, 0);
-               totalGreen++;
-               if (curHPoint < row)
-                   greenUnder++;
                break;
            case 2:
-               //if (probability > .995) (choose top 10 in every 100 x 100 ush, with a lower bound
                 color = Vec3b(255, 0, 0);
+               break;
+           case 3:
+               color = Vec3b(0, 0, 0);
                break;
            }
            zoneMapping.at<Vec3b>(row,col) = color;
-       }
-   }
-   //go through zonemappings, if green or red lie mostly below the horizon line, then turn them blue instead
-   //This only matters for two reasons
-   // a) If we decide to use the zones to determine shoreline instead of just defaulting to the horizon line
-   // b) For detecting green/red colored areas that are islands in the blue areas
-   //      If enough of the green/red area is under neath the horizon line we can assume that it is modeling water
-   //      Thus we should not model any green/red islands as obstacles since they are likely still just water
-   double redUnderRatio = (double)redUnder/totalRed;
-   double greenUnderRatio = (double)greenUnder/totalGreen;
-   for (int row = 0; row < zoneMapping.rows; row++) {
-       unsigned char *obstaclePtr = obstacleMap.ptr<uint8_t>(row);
-       for (int col = 0; col < zoneMapping.cols; col++) {
-           Vec3b& color = zoneMapping.at<Vec3b>(row,col);
-           if (color[1] == 255) {
-               if (greenUnderRatio > 0.5) {
-                   color[1] = 0;
-                   color[0] = 255;
-               } else if (obstaclePtr[col] != 255){
-                   obstaclePtr[col] = 128;
-               }
-           } else if (color[2] == 255) {
-               if (redUnderRatio > 0.5) {
-                   color[2] = 0;
-                   color[0] = 255;
-               } else if (obstaclePtr[col] != 255){
-                   obstaclePtr[col] = 128;
-               }
+           if (probability < 0.999) {
+               zoneMapping.at<Vec3b>(row,col) = Vec3b(0,0,0);
+               seedNodes.at<uint8_t>(row,col) = 0;
            }
+            seedNodesP.at<double>(row,col) = probability;
        }
    }
 
    if (display) {
-       imshow("Obstacle Map", obstacleMap);
+       imshow("Zones", zoneMapping);
    }
 }
 
