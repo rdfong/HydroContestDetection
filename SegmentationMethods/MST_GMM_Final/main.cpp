@@ -72,11 +72,11 @@ int main(int argc, char *argv[])
     //PER IMAGE GMM/MST Code
     /**********GMM CODE**********/
     //Get boundary dissimiliarity image here for use by GMM Seed node finding
-    cvtColor(originalImage, lab, CV_BGR2Lab);
+    cvtColor(originalImage, lab, CV_BGR2YCrCb);
     getBoundaryPix(lab, boundaryPixels, boundary_size);
     getDissimiliarityImage(boundaryPixels, lab, dis_image);
-    treeFilter(dis_image, mbd_image, 5, 0.5);
-    bilateralFilter(dis_image, new_dis_image, 5, 0.5, 0.5);
+    treeFilter(dis_image, mbd_image, 3, 0.5);
+    bilateralFilter(dis_image, new_dis_image, 3, 0.5, 0.5);
 
     //Initialize model
     cvtColor(GMMimage, GMMimage, CV_BGR2HSV);
