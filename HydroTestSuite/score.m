@@ -170,8 +170,8 @@ for p=1:length(proposals)
 end
 
 %Find mean of results over all images
-message = sprintf('\n\nMBO: %f\nTotal Recall: %f\nTotal Precision: %f\nTotal FScore: %f\n', ...
-    mean(mboResults), mean(recallResults), mean(precisionResults), mean(fscoreResults));
+message = sprintf('\n\nMBO: %f\nTotal Recall: %f\nTotal Precision: %f\nTotal FScore: %f\nMBO-F average: %f\n', ...
+    mean(mboResults), mean(recallResults), mean(precisionResults), mean(fscoreResults), (mean(mboResults)+mean(fscoreResults))/2);
 fprintf(outID, message);
 fclose(outID);
 %Write score to file (saveas dialog)

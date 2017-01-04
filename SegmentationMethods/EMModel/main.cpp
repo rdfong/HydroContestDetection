@@ -328,7 +328,7 @@ void initializeGaussianModels(Mat image) {
                 indexToRegion[i] = std::pair<int, int>(2, waterCount);
                 waterCount++;
             }
-        } else if (hMidPercent <= .1) {
+        } else if (hMidPercent <= .05) {
             //Set everything above horizon to sky
             if (curHPoint > curY) {
                 indexToRegion[i] = std::pair<int, int>(0, skyCount);
@@ -718,7 +718,7 @@ int main(int argc, char *argv[])
     rightIntercept = hRightIntercept*image.rows/(double)hHeight;
 
     //Initialize kernel info once
-    int kernelWidth = (2*((int)(.08*image.rows)))+1;
+    int kernelWidth = (2*((int)(.1*image.rows)))+1;
     Mat kern = getGaussianKernel(kernelWidth, kernelWidth/1.5);
     Mat kernT;
     transpose(kern, kernT);

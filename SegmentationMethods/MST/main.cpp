@@ -583,7 +583,14 @@ void customOtsuThreshold(Mat& im) {
         curThresh = 256;
     threshold(im, im, curThresh, 255, THRESH_BINARY);
 }
+//todo
+//to adjust:
+    // tree filter
 
+//For bounding boxes:
+    //merging parameters (size and colorSim)
+    //bounding box elimination, std and size
+    //with or without merging, with pic examples
 int main(int argc, char *argv[])
 {
 #if VIDEO == 0
@@ -610,33 +617,6 @@ int main(int argc, char *argv[])
     Mat scaledImage, gray_image, lab, mbd_image, dis_image, new_dis_image, combined, rawCombined, intermediate;
 
     resize(image, scaledImage, size);
-
-    //-----------------------------------------------------------------
-    //SETUP FREICHEN FILTER BANK
-    float factor = 1.0/(2*sqrt(2));
-    float factor2 = 1.0/6;
-    float factor3 = 1.0/3;
-    float data[81] = {factor, 0.5, factor, 0, 0, 0, -factor, -0.5, -factor,
-                      factor, 0, -factor, 0.5, 0, -0.5, factor, 0, -factor,
-                      0, -factor, 0.5, factor, 0, -factor, -0.5, factor, 0,
-                      0.5, -factor, 0, -factor, 0, factor, 0, factor, -0.5,
-                      0, 0.5, 0, -0.5, 0, -0.5, 0, 0.5, 0,
-                      -0.5, 0, 0.5, 0, 0, 0, 0.5, 0, -0.5,
-                      factor2, -2*factor2, factor2, -2*factor2, 4*factor2, -2*factor2, factor2, -2*factor2, factor2,
-                      -2*factor2, factor2, -2*factor2, factor2, 4*factor2, factor2, -2*factor2, factor2, -2*factor2,
-                      factor3, factor3, factor3, factor3, factor3, factor3};
-
-    std::vector<Mat> fBank;
-    float *pData = data;
-    for (int i = 0; i < 9; i++) {
-        fBank.push_back(Mat(3,3, CV_32F, pData));
-        pData += 9;
-    }
-    Mat frei_image = Mat::zeros(scaledImage.rows, scaledImage.cols, CV_32F);
-    Mat m_term = Mat::zeros(scaledImage.rows, scaledImage.cols, CV_32F);
-    Mat s_term = Mat::zeros(scaledImage.rows, scaledImage.cols, CV_32F);
-
-    //-----------------------------------------------------------------
 
 
     //SETUP FOR MST
@@ -671,11 +651,7 @@ int main(int argc, char *argv[])
     //-----------------------------------------------------------------
      int64 t1 = getTickCount();
      //TODO: this is a trade off, smaller farther away objects get fucked, maybe the solution is to not use this and have better background seeds
-     GaussianBlur(gray_image, gray_image, Size(5, 5), 3);
-     //more blur deals with open water better...
-     // GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
-    // GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
-    // GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
+     GaussianBlur(gray_image, gray_image, Size(3, 3), 2);
      //This messes with smaller and more difficult to distinguish objects. would rather not remove information, maybe blur just the edges
      updateVertexGridWeights(gray_image);
      createMST(gray_image);
@@ -691,23 +667,10 @@ int main(int argc, char *argv[])
 
      dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
      getDissimiliarityImage(boundaryPixels, lab, dis_image);
-     treeFilter(dis_image, mbd_image, 5, 0.5);
+     treeFilter(dis_image, mbd_image, 4, 0.5);
      new_dis_image = Mat::zeros(lab.rows, lab.cols, CV_32FC1);
-     bilateralFilter(dis_image, new_dis_image, 5, 0.5, 0.5);
+     bilateralFilter(dis_image, new_dis_image, 4, 0.5, 0.5);
 
-     //FREICHEN: CONCLUSION: ONLY USE FOR TRACKING, STILL PRODUCES TOO MUCH NOISE IN WATER
-    /* gray_image.convertTo(gray_image, CV_32F);
-     for (int f = 0; f < 9; f++) {
-       filter2D(gray_image, frei_image, -1 , fBank[f]);
-       s_term += frei_image.mul(frei_image);
-       if (f == 1) {
-           m_term = s_term.clone();
-       }
-   }
-   cv::sqrt(m_term/s_term, frei_image);
-
-
-   cv::threshold(frei_image, frei_image, 0.1, 1.0, THRESH_BINARY);*/
 
      //combine images
      rawCombined = mbd_image + new_dis_image;
@@ -742,10 +705,10 @@ int main(int argc, char *argv[])
           for (int i =0; i < contours.size(); i++) {
               curRect = boundingRect(contours[i]);
               meanStdDev(rawCombined(curRect), mean, std);
-              if ((std.at<double>(0,0) < 0.1 && curRect.area() >= (.25*combined.rows*combined.cols)) ||
-                      (double)curRect.width/curRect.height < 0.1 ||
-                      (double)curRect.height/curRect.width < 0.1)
-                  continue;
+              //if ((std.at<double>(0,0) < 0.1 && curRect.area() >= (.25*combined.rows*combined.cols)) ||
+              //        (double)curRect.width/curRect.height < 0.1 ||
+              //        (double)curRect.height/curRect.width < 0.1)
+              //    continue;
               Point2i newTL(max(curRect.tl().x-expand, 0), max(curRect.tl().y-expand,0));
               Point2i newBR(min(curRect.br().x+expand, combined.cols-1), min(curRect.br().y+expand,combined.rows-1));
               boundRects.push_back(Rect(newTL, newBR));
@@ -775,7 +738,7 @@ int main(int argc, char *argv[])
                             intersectionFound = true;
                             groupsToMerge.push_back(i);
                             break;
-                        } else if (intersection.area() > 0) {
+                        } /*else if (intersection.area() > 0) {
                             //COLOR SIMILARITY MEASURE
                             Mat mask1, mask2;
                             combined(curRect).copyTo(mask1);
@@ -823,7 +786,7 @@ int main(int argc, char *argv[])
                                 groupsToMerge.push_back(i);
                                 break;
                             }
-                        }
+                        }*/
                     }
                 }
                 if (groupsToMerge.size() > 1) {
@@ -853,7 +816,7 @@ int main(int argc, char *argv[])
           }
           for (int i = 0; i < finalBoxBounds.size(); i++) {
               curRect = Rect(finalBoxBounds[i].first, finalBoxBounds[i].second);
-              if (curRect.area() > 25) {
+              if (curRect.area() > 50) {
                 rectangle(scaledImage, Rect(finalBoxBounds[i].first, finalBoxBounds[i].second), Scalar(0, 255,0), 2);
                 scoreFile << "other\n" << curRect.tl().x << " " << curRect.tl().y << " "
                                     << curRect.width << " " << curRect.height <<std::endl;
@@ -866,7 +829,6 @@ int main(int argc, char *argv[])
      int64 t2 = getTickCount();
     imshow("mbd", mbd_image);
     imshow("dis_post", new_dis_image);
-   // imshow("frei", frei_image);
     imshow("combined", combined);
     imshow("final result", scaledImage);
     std::cout << "PER FRAME TIME: " << (t2 - t1)/getTickFrequency() << std::endl;
