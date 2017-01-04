@@ -49,7 +49,7 @@ void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& sc
    for (int i =0; i < contours.size(); i++) {
        curRect = boundingRect(contours[i]);
        //don't add a box if it is too long or too tall in aspect ratio
-       if ((double)curRect.width/curRect.height < 0.1 || (double)curRect.height/curRect.width < 0.1)
+       if ((double)curRect.width/curRect.height < 0.05 || (double)curRect.height/curRect.width < 0.05)
            continue;
        Point2i newTL(max(curRect.tl().x-expand, 0), max(curRect.tl().y-expand,0));
        Point2i newBR(min(curRect.br().x+expand, obstacleMap.cols-1), min(curRect.br().y+expand,obstacleMap.rows-1));
@@ -158,7 +158,7 @@ void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& sc
    }
    for (int i = 0; i < finalBoxBounds.size(); i++) {
        curRect = Rect(finalBoxBounds[i].first, finalBoxBounds[i].second);
-       if (curRect.area() > 25) {
+       if (curRect.area() > 50) {
          rectangle(image, curRect, Scalar(0, 255,0), 2);
          scoreFile << "other\n" << curRect.tl().x << " " << curRect.tl().y << " "
                              << curRect.width << " " << curRect.height <<std::endl;

@@ -71,6 +71,13 @@ int main(int argc, char *argv[])
     int t1 = getTickCount();
     //PER IMAGE GMM/MST Code
     /**********GMM CODE**********/
+    //Get boundary dissimiliarity image here for use by GMM Seed node finding
+    cvtColor(originalImage, lab, CV_BGR2Lab);
+    getBoundaryPix(lab, boundaryPixels, boundary_size);
+    getDissimiliarityImage(boundaryPixels, lab, dis_image);
+    treeFilter(dis_image, mbd_image, 5, 0.5);
+    bilateralFilter(dis_image, new_dis_image, 5, 0.5, 0.5);
+
     //Initialize model
     cvtColor(GMMimage, GMMimage, CV_BGR2HSV);
     setDataFromFrame(GMMimage);
@@ -78,25 +85,22 @@ int main(int argc, char *argv[])
     initializeLabelPriors(GMMimage, false);
     initializeGaussianModels(GMMimage);
     runEM(GMMimage);
-    findSeedNodes(GMMimage, seedNodes, true);
+    Mat disImageClone = new_dis_image.clone();
+    findSeedNodes(GMMimage, disImageClone, seedNodes, true);
     resize(seedNodes, seedNodes, Size(originalImage.cols, originalImage.rows), 0, 0, INTER_NEAREST);
     imshow("sNodes", seedNodes);
 
     /***********MST CODE***********/
     //Create MST representation
     cvtColor(originalImage, gray_image, CV_BGR2GRAY );
-    GaussianBlur(gray_image, gray_image, Size(5, 5), 3);
+    GaussianBlur(gray_image, gray_image, Size(5, 5), 2);
     updateVertexGridWeights(gray_image);
     setSeedNodes(seedNodes);
     createMST(gray_image);
     passUp();
     passDown();
     //Get boundary dissimiliary and tree distance maps
-    cvtColor(originalImage, lab, CV_BGR2Lab);
-    getMBDImageAndBoundaryPix(lab, mbd_image, boundaryPixels, boundary_size);
-    getDissimiliarityImage(boundaryPixels, lab, dis_image);
-    treeFilter(dis_image, mbd_image, 5, 0.5);
-    bilateralFilter(dis_image, new_dis_image, 5, 0.5, 0.5);
+    getMBDImage(mbd_image);
 
     //combine images and normalize
     obstacles.convertTo(obstacles, CV_32F);

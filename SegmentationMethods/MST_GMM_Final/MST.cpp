@@ -166,7 +166,6 @@ void updateVertexGridWeights(Mat& im) {
 
 void setSeedNodes(Mat &seedNodeMap) {
     auto v_it = vNodes.begin();
-    int count = 0;
     vNode *node = &*v_it;
     //We have to set upper left corner to a seed node
     node->seedNode = true;
@@ -176,12 +175,10 @@ void setSeedNodes(Mat &seedNodeMap) {
             node = &*v_it;
             if (seedNodeRow[col] == 255) {
                 node->seedNode = true;
-                count++;
             }
             v_it++;
         }
     }
-    std::cout << count << std::endl;
 }
 
 void initializeDiffBins() {
@@ -460,29 +457,37 @@ void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Ma
     }
 }
 
-void getMBDImageAndBoundaryPix(Mat& color_im, Mat& mbd_image, std::vector<cv::Point3f>& boundaryPixels, int boundarySize) {
+void getMBDImage(Mat& mbd_image) {
     auto im_it = mbd_image.begin<float>();
     auto v_it = vNodes.begin();
-    auto color_it = color_im.begin<cv::Vec3b>();
     vNode* curNode;
-    cv::Vec3b color;
-    int count = 0;
     for (int row = 0; row < mbd_image.rows; row++) {
        for (int col = 0; col < mbd_image.cols; col++) {
            curNode = &*v_it;
            (*im_it) = curNode->distance/255.0;
-           if (row < boundarySize || row >= mbd_image.rows-boundarySize || col < boundarySize || col >= mbd_image.cols-boundarySize) {
+           ++v_it;
+           ++im_it;
+       }
+    }
+}
+
+void getBoundaryPix(Mat& color_im, std::vector<cv::Point3f>& boundaryPixels, int boundarySize) {
+    auto color_it = color_im.begin<cv::Vec3b>();
+    cv::Vec3b color;
+    int count = 0;
+    for (int row = 0; row < color_im.rows; row++) {
+       for (int col = 0; col < color_im.cols; col++) {
+           if (row < boundarySize || row >= color_im.rows-boundarySize || col < boundarySize || col >= color_im.cols-boundarySize) {
                color = *color_it;
                boundaryPixels[count] = (cv::Point3f(color[0], color[1], color[2]));
                count++;
            }
-           ++v_it;
-           ++im_it;
            ++color_it;
        }
     }
     assert(boundaryPixels.size() == count);
 }
+
 
 void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
     int row, col, rowStart, rowEnd, colStart, colEnd, fRow, fCol;

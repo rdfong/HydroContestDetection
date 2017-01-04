@@ -1,4 +1,5 @@
 #include "GMM.h"
+#include "BoundingBoxes.h"
 
 // Disable weak prior, not flexible enough for purposes and actually made some results worse
 #if USE_WEAK_PRIOR == 1
@@ -45,7 +46,7 @@ void parseHorizonInfo(Mat& image, std::string horizonFileName) {
 }
 
 void initializeKernelInfo(Mat& image) {
-    int kernelWidth = (2*((int)(.08*image.rows)))+1;
+    int kernelWidth = (2*((int)(.1*image.rows)))+1;
     Mat kern = getGaussianKernel(kernelWidth, kernelWidth/1.5);
     Mat kernT;
     transpose(kern, kernT);
@@ -171,7 +172,7 @@ void initializeGaussianModels(Mat& image) {
                indexToRegion[i] = std::pair<int, int>(2, waterCount);
                waterCount++;
            }
-       } else if (hMidPercent <= .1) {
+       } else if (hMidPercent <= .15) {
            //Set everything above horizon to sky
            if (curHPoint > curY) {
                indexToRegion[i] = std::pair<int, int>(0, skyCount);
@@ -371,13 +372,19 @@ void findShoreLine(Mat& coloredImage, std::vector<int>& shoreLine, bool display)
        imshow("Shore Line", coloredImage);
 }
 
-void findSeedNodes(Mat& image, Mat& seedNodes, bool display) {
-   Mat seedNodesP = Mat::zeros(image.rows, image.cols, CV_64F);
+void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display) {
    seedNodes = Mat::ones(image.rows, image.cols, CV_8U)*255;
    Mat zoneMapping = image.clone();
 
+   dis_image = dis_image*255;
+   Mat disThresh;
+   dis_image.convertTo(disThresh, CV_8U);
+   //threshold(disThresh, disThresh, 0, 255, THRESH_OTSU);
+  customOtsuThreshold(disThresh);
+
    double* posteriorRows[4];
    for (int row = 0; row < image.rows; row++) {
+       uint8_t* rowPtr = dis_image.ptr<uint8_t>(row);
        posteriorRows[0] = posteriorP[0].ptr<double>(row);
        posteriorRows[1] = posteriorP[1].ptr<double>(row);
        posteriorRows[2] = posteriorP[2].ptr<double>(row);
@@ -413,14 +420,18 @@ void findSeedNodes(Mat& image, Mat& seedNodes, bool display) {
                break;
            }
            zoneMapping.at<Vec3b>(row,col) = color;
-           if (probability < 0.999) {
+           if (maxIndex == 3 || rowPtr[col] == 255) {
                zoneMapping.at<Vec3b>(row,col) = Vec3b(0,0,0);
                seedNodes.at<uint8_t>(row,col) = 0;
            }
-            seedNodesP.at<double>(row,col) = probability;
        }
    }
-
+   Mat structural = getStructuringElement(MORPH_ELLIPSE, Size(5, 5));
+   if (cv::sum(seedNodes)[0]/255 != seedNodes.rows*seedNodes.cols) {
+       while (cv::sum(seedNodes)[0]/255 > .75*seedNodes.rows*seedNodes.cols) {
+            morphologyEx(seedNodes, seedNodes, MORPH_ERODE, structural);
+       }
+   }
    if (display) {
        imshow("Zones", zoneMapping);
    }
