@@ -45,7 +45,7 @@ void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& sc
    boundRects.clear();
    findContours( obstacleMap.clone(), contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
    //get bounding rects from contours
-   int expand = 3;
+   int expand = 1;
    for (int i =0; i < contours.size(); i++) {
        curRect = boundingRect(contours[i]);
        //don't add a box if it is too long or too tall in aspect ratio
