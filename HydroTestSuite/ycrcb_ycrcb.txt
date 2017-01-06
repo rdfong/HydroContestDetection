@@ -1,0 +1,257 @@
+00.JPG.txt
+MBO: 0.646920
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+02.JPG.txt
+MBO: 0.404966
+Recall: 0.500000
+Precision: 0.285714
+FScore: 0.363636
+04.JPG.txt
+MBO: 0.382999
+Recall: 1.000000
+Precision: 0.600000
+FScore: 0.750000
+06.JPG.txt
+MBO: 0.617128
+Recall: 0.800000
+Precision: 1.000000
+FScore: 0.888889
+08.JPG.txt
+MBO: 0.506530
+Recall: 1.000000
+Precision: 0.800000
+FScore: 0.888889
+10.JPG.txt
+MBO: 0.627697
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+12.JPG.txt
+MBO: 0.486672
+Recall: 1.000000
+Precision: 0.750000
+FScore: 0.857143
+14.JPG.txt
+MBO: 0.618182
+Recall: 1.000000
+Precision: 0.428571
+FScore: 0.600000
+16.JPG.txt
+MBO: 0.866206
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+18.JPG.txt
+MBO: 0.415013
+Recall: 0.750000
+Precision: 1.000000
+FScore: 0.857143
+20.JPG.txt
+MBO: 0.469372
+Recall: 0.500000
+Precision: 1.000000
+FScore: 0.666667
+22.JPG.txt
+MBO: 0.917783
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+24.JPG.txt
+MBO: 0.522946
+Recall: 0.750000
+Precision: 1.000000
+FScore: 0.857143
+26.JPG.txt
+MBO: 0.362778
+Recall: 0.500000
+Precision: 1.000000
+FScore: 0.666667
+28.JPG.txt
+MBO: 0.883793
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+30.JPG.txt
+MBO: 0.308022
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+32.JPG.txt
+MBO: 0.000000
+Recall: 1.000000
+Precision: 0.000000
+FScore: 0.000000
+34.JPG.txt
+MBO: 0.558499
+Recall: 0.800000
+Precision: 1.000000
+FScore: 0.888889
+36.JPG.txt
+MBO: 0.769536
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+38.JPG.txt
+MBO: 0.432659
+Recall: 0.714286
+Precision: 0.833333
+FScore: 0.769231
+40.JPG.txt
+MBO: 0.485144
+Recall: 0.666667
+Precision: 0.833333
+FScore: 0.740741
+42.JPG.txt
+MBO: 0.751011
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+44.JPG.txt
+MBO: 0.717487
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+46.JPG.txt
+MBO: 0.771664
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+48.JPG.txt
+MBO: 0.580512
+Recall: 0.666667
+Precision: 1.000000
+FScore: 0.800000
+50.JPG.txt
+MBO: 0.835874
+Recall: 1.000000
+Precision: 0.066667
+FScore: 0.125000
+52.JPG.txt
+MBO: 0.864876
+Recall: 1.000000
+Precision: 0.750000
+FScore: 0.857143
+54.JPG.txt
+MBO: 0.625620
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+56.JPG.txt
+MBO: 0.709032
+Recall: 1.000000
+Precision: 0.666667
+FScore: 0.800000
+58.JPG.txt
+MBO: 0.580828
+Recall: 0.750000
+Precision: 0.750000
+FScore: 0.750000
+60.JPG.txt
+MBO: 0.379287
+Recall: 0.500000
+Precision: 1.000000
+FScore: 0.666667
+62.JPG.txt
+MBO: 0.652602
+Recall: 1.000000
+Precision: 0.666667
+FScore: 0.800000
+64.JPG.txt
+MBO: 0.503461
+Recall: 1.000000
+Precision: 1.000000
+FScore: 1.000000
+66.JPG.txt
+MBO: 0.172545
+Recall: 0.444444
+Precision: 0.833333
+FScore: 0.579710
+68.JPG.txt
+MBO: 0.588881
+Recall: 0.666667
+Precision: 0.750000
+FScore: 0.705882
+70.JPG.txt
+MBO: 0.900592
+Recall: 1.000000
+Precision: 0.200000
+FScore: 0.333333
+72.JPG.txt
+MBO: 0.789824
+Recall: 1.000000
+Precision: 0.200000
+FScore: 0.333333
+74.JPG.txt
+MBO: 0.324202
+Recall: 1.000000
+Precision: 0.333333
+FScore: 0.500000
+76.JPG.txt
+MBO: 0.708264
+Recall: 1.000000
+Precision: 0.666667
+FScore: 0.800000
+78.JPG.txt
+MBO: 0.269402
+Recall: 0.571429
+Precision: 1.000000
+FScore: 0.727273
+80.JPG.txt
+MBO: 0.367150
+Recall: 1.000000
+Precision: 0.333333
+FScore: 0.500000
+82.JPG.txt
+MBO: 0.738941
+Recall: 1.000000
+Precision: 0.272727
+FScore: 0.428571
+84.JPG.txt
+MBO: 0.694405
+Recall: 1.000000
+Precision: 0.500000
+FScore: 0.666667
+86.JPG.txt
+MBO: 1.000000
+Recall: 1.000000
+Precision: 0.000000
+FScore: 0.000000
+88.JPG.txt
+MBO: 0.000000
+Recall: 0.000000
+Precision: 0.545455
+FScore: 0.000000
+90.JPG.txt
+MBO: 0.589830
+Recall: 0.750000
+Precision: 0.500000
+FScore: 0.600000
+92.JPG.txt
+MBO: 0.386115
+Recall: 0.500000
+Precision: 0.750000
+FScore: 0.600000
+94.JPG.txt
+MBO: 0.774556
+Recall: 1.000000
+Precision: 0.300000
+FScore: 0.461538
+96.JPG.txt
+MBO: 0.307244
+Recall: 0.400000
+Precision: 0.545455
+FScore: 0.461538
+98.JPG.txt
+MBO: 0.000000
+Recall: 1.000000
+Precision: 0.000000
+FScore: 0.000000
+
+
+MBO: 0.557341
+Total Recall: 0.844603
+Total Precision: 0.703225
+Total FScore: 0.685834
+MBO-F average: 0.621587

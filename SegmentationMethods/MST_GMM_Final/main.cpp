@@ -118,13 +118,11 @@ int main(int argc, char *argv[])
 
     Mat obstaclesInWaterMST;
     //Post process and write results
-    if (maxVal-minVal > 0.75) {
-        postProcessing(combined);
-        customOtsuThreshold(combined);
-        findHorizonLine(horizonLine, cv::Size(combined.cols, combined.rows));
-        findObstacles(horizonLine, combined, obstaclesInWaterMST, true);
-        findContoursAndWriteResults(obstaclesInWaterMST, originalImage, scoreFile, output+name);
-    }
+    postProcessing(combined);
+    customOtsuThreshold(combined);
+    findHorizonLine(horizonLine, cv::Size(combined.cols, combined.rows));
+    findObstacles(horizonLine, combined, obstaclesInWaterMST, true);
+    findContoursAndWriteResults(obstaclesInWaterMST, originalImage, scoreFile, output+name);
 
     int t2 = getTickCount();
     std::cout << "Processing Time/Image: " << (t2-t1)/getTickFrequency() << std::endl;
