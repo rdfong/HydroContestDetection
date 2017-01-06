@@ -48,10 +48,6 @@ void drawBoundingBoxes(Mat& displayImage) {
 
 int main(int argc, char *argv[])
 {
-    //TODO: step 1: combine boxes to form super boxes (remove small joints)
-    //      step 2: split boxes as necessary (via differences)
-    //      step 3: reshape and extend boxes as necessary (via canny style thresholding)
-    //      step 4: blob filtering (taking size and height in image into consideration?)
     Mat gray_image;
     gray_image = imread("../../TestMedia/binaryImages/boat3.png", CV_LOAD_IMAGE_GRAYSCALE);
     if (!gray_image.data)

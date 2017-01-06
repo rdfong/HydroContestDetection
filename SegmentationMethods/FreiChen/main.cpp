@@ -4,7 +4,6 @@
 
 using namespace cv;
 
-//if most weight closer to the outside of the tight bounding box, probably an object
 int main(int argc, char *argv[])
 {
    VideoCapture cap("../../TestMedia/videos/boatm30.mp4"); // open the default camera
@@ -13,6 +12,7 @@ int main(int argc, char *argv[])
        return -1;
    }
 
+   //Set up filter banks
    float factor = 1.0/(2*sqrt(2));
    float factor2 = 1.0/6;
    float factor3 = 1.0/3;
@@ -43,19 +43,20 @@ int main(int argc, char *argv[])
        int width = image.cols/2;
        int height = image.rows/2;
        Mat gray_image;
-      // int64 t1 = getTickCount();
 
-      // resize(image, scaledImage, Size(image.cols, image.rows));
        scaledImage = image;
        Mat frei_image = Mat::zeros(scaledImage.rows, scaledImage.cols, CV_32F);
        Mat m_term = Mat::zeros(scaledImage.rows, scaledImage.cols, CV_32F);
        Mat s_term = Mat::zeros(scaledImage.rows, scaledImage.cols, CV_32F);
 
+       //blur image
        cvtColor( scaledImage, gray_image, CV_BGR2GRAY );
         GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
         GaussianBlur(gray_image, gray_image, Size(7, 7), 5);
 
        gray_image.convertTo(gray_image, CV_32F);
+
+       //run filters
          for (int f = 0; f < 9; f++) {
            filter2D(gray_image, frei_image, -1 , fBank[f]);
            s_term += frei_image.mul(frei_image);
@@ -63,18 +64,16 @@ int main(int argc, char *argv[])
                m_term = s_term.clone();
            }
        }
-       cv::sqrt(m_term/s_term, frei_image);
-       cv::threshold(frei_image, frei_image, 0.05, 1.0, THRESH_BINARY);
+        cv::sqrt(m_term/s_term, frei_image);
+        cv::threshold(frei_image, frei_image, 0.05, 1.0, THRESH_BINARY);
 
-      // int64 t2 = getTickCount();
-    //   std::cout << (t2 - t1)/getTickFrequency() << std::endl;
 
-       imshow("threshold", frei_image);
+        imshow("threshold", frei_image);
 
-       resize(image, image, Size(width, height));
-       imshow("orig", image);
+        resize(image, image, Size(width, height));
+        imshow("orig", image);
 
-         waitKey(1);
+        waitKey(1);
    }
 
     return 0;
