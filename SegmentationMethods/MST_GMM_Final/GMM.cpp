@@ -33,6 +33,11 @@ double uniformComponent;
 int hLeftIntercept, hRightIntercept, hWidth, hHeight;
 int leftIntercept, rightIntercept;
 
+/**
+ * @brief parseHorizonInfo
+ * @param image
+ * @param horizonFileName
+ */
 void parseHorizonInfo(Mat& image, std::string horizonFileName) {
     std::ifstream horizonFile;
     horizonFile.open(horizonFileName);
@@ -45,6 +50,10 @@ void parseHorizonInfo(Mat& image, std::string horizonFileName) {
     rightIntercept = hRightIntercept*image.rows/(double)hHeight;
 }
 
+/**
+ * @brief initializeKernelInfo
+ * @param image
+ */
 void initializeKernelInfo(Mat& image) {
     int kernelWidth = (2*((int)(.1*image.rows)))+1;
     Mat kern = getGaussianKernel(kernelWidth, kernelWidth/1.5);
@@ -59,6 +68,10 @@ void initializeKernelInfo(Mat& image) {
     lambda1.at<double>(kernelWidth/2,kernelWidth/2) = 1.0;
 }
 
+/**
+ * @brief initializePriorsAndPosteriorStructures
+ * @param image
+ */
 void initializePriorsAndPosteriorStructures(Mat& image) {
    for (int i = 0; i < 4; i++) {
        if (i < 3) {
@@ -116,6 +129,11 @@ void initializePriorsAndPosteriorStructures(Mat& image) {
 #endif
 }
 
+/**
+ * @brief initializeLabelPriors
+ * @param image
+ * @param usePrevious
+ */
 void initializeLabelPriors(Mat& image, bool usePrevious) {
    if (usePrevious) {
        //TODO: Untested on video due to lack of real time horizon data
@@ -142,6 +160,10 @@ void initializeLabelPriors(Mat& image, bool usePrevious) {
    }
 }
 
+/**
+ * @brief initializeGaussianModels
+ * @param image
+ */
 void initializeGaussianModels(Mat& image) {
    //If we have confident horizon line estimatse we can have good estimates
    //If do not however we assume the height spread for the gaussians, 0.0-0.2, 0.2-0.4,0.6-1.0
@@ -172,7 +194,7 @@ void initializeGaussianModels(Mat& image) {
                indexToRegion[i] = std::pair<int, int>(2, waterCount);
                waterCount++;
            }
-       } else if (hMidPercent <= .15) {
+       } else if (hMidPercent <= .05) {
            //Set everything above horizon to sky
            if (curHPoint > curY) {
                indexToRegion[i] = std::pair<int, int>(0, skyCount);
@@ -219,6 +241,10 @@ void initializeGaussianModels(Mat& image) {
    cv::calcCovarMatrix(regionMats[2], covars[2], means[2], CV_COVAR_NORMAL | CV_COVAR_ROWS | CV_COVAR_SCALE);
 }
 
+/**
+ * @brief setDataFromFrame
+ * @param image
+ */
 void setDataFromFrame(Mat& image) {
    imageFeatures = Mat::zeros(image.rows*image.cols, 5, CV_64F);
    int index = 0;
@@ -236,6 +262,10 @@ void setDataFromFrame(Mat& image) {
    }
 }
 
+/**
+ * @brief updatePriorsAndPosteriors
+ * @param image
+ */
 void updatePriorsAndPosteriors(Mat& image) {
    //Make sure matrices are well conditioned
    int result0 = invert(covars[0]+Mat::eye(5,5,CV_64F).mul(covars[0])*1e-10, icovars[0]);
@@ -290,6 +320,10 @@ void updatePriorsAndPosteriors(Mat& image) {
    }
 }
 
+/**
+ * @brief updateGaussianParameters
+ * @param image
+ */
 void updateGaussianParameters(Mat& image) {
    Mat lambda, meanDiff, meanDiffT, featureSum;
    Mat meanOpt, covarOpt;
@@ -327,6 +361,11 @@ void updateGaussianParameters(Mat& image) {
    }
 }
 
+/**
+ * @brief findHorizonLine
+ * @param shoreLine
+ * @param s
+ */
 void findHorizonLine(std::vector<int>& shoreLine, cv::Size s) {
     int sLeftIntercept = (double)s.height/hHeight*hLeftIntercept;
     int sRightIntercept = (double)s.height/hHeight*hRightIntercept;
@@ -336,6 +375,12 @@ void findHorizonLine(std::vector<int>& shoreLine, cv::Size s) {
     }
 }
 
+/**
+ * @brief findShoreLine
+ * @param coloredImage
+ * @param shoreLine
+ * @param display
+ */
 void findShoreLine(Mat& coloredImage, std::vector<int>& shoreLine, bool display) {
     float areaRatioLimit = 0.1;
     cv::Scalar lowerb = cv::Scalar(0,0,0);
@@ -372,9 +417,17 @@ void findShoreLine(Mat& coloredImage, std::vector<int>& shoreLine, bool display)
        imshow("Shore Line", coloredImage);
 }
 
+/**
+ * @brief findSeedNodes
+ * @param image
+ * @param dis_image
+ * @param seedNodes
+ * @param display
+ */
 void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display) {
-   seedNodes = Mat::ones(image.rows, image.cols, CV_8U)*255;
+   seedNodes = Mat::ones(dis_image.rows, dis_image.cols, CV_8U)*255;
    Mat zoneMapping = image.clone();
+   Mat gmmUniformComps = Mat::zeros(image.rows, image.cols, CV_8U);
 
    dis_image = dis_image*255;
    Mat disThresh;
@@ -384,7 +437,7 @@ void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display) {
 
    double* posteriorRows[4];
    for (int row = 0; row < image.rows; row++) {
-       uint8_t* rowPtr = dis_image.ptr<uint8_t>(row);
+       uint8_t* gmmUniformRowPtr = gmmUniformComps.ptr<uint8_t>(row);
        posteriorRows[0] = posteriorP[0].ptr<double>(row);
        posteriorRows[1] = posteriorP[1].ptr<double>(row);
        posteriorRows[2] = posteriorP[2].ptr<double>(row);
@@ -420,15 +473,30 @@ void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display) {
                break;
            }
            zoneMapping.at<Vec3b>(row,col) = color;
-           if (maxIndex == 3 || rowPtr[col] == 255) {
+           if (maxIndex == 3) {
+               gmmUniformRowPtr[col] = 255;
                zoneMapping.at<Vec3b>(row,col) = Vec3b(0,0,0);
-               seedNodes.at<uint8_t>(row,col) = 0;
            }
        }
    }
+
+   Mat gmmUniformCompsScaled;
+   resize(gmmUniformComps, gmmUniformCompsScaled, Size(dis_image.cols, dis_image.rows));
+
+   for (int row = 0; row < dis_image.rows; row++) {
+       uint8_t* seedNodeRowPtr = seedNodes.ptr<uint8_t>(row);
+       uint8_t* disThreshRowPtr = disThresh.ptr<uint8_t>(row);
+       uint8_t* gmmUniformRowPtr = gmmUniformCompsScaled.ptr<uint8_t>(row);
+       for (int col = 0; col < dis_image.cols; col++) {
+           if (gmmUniformRowPtr[col] == 255 || disThreshRowPtr[col] == 255) {
+               seedNodeRowPtr[col] = 0;
+           }
+       }
+   }
+
    Mat structural = getStructuringElement(MORPH_ELLIPSE, Size(5, 5));
    if (cv::sum(seedNodes)[0]/255 != seedNodes.rows*seedNodes.cols) {
-       while (cv::sum(seedNodes)[0]/255 > .75*seedNodes.rows*seedNodes.cols) {
+       while (cv::sum(seedNodes)[0]/255 > 0.75*seedNodes.rows*seedNodes.cols) {
             morphologyEx(seedNodes, seedNodes, MORPH_ERODE, structural);
        }
    }
@@ -437,6 +505,13 @@ void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display) {
    }
 }
 
+/**
+ * @brief findObstacles
+ * @param shoreLine
+ * @param obstacles
+ * @param obstaclesInWater
+ * @param display
+ */
 void findObstacles(std::vector<int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display) {
    //simply return any white connected white blobs that are under the zone shift
    //do it by scanning up, once the line has been passed, switch on a flag such that it tends once the current run ends
@@ -487,7 +562,11 @@ void findObstacles(std::vector<int>& shoreLine, Mat& obstacles, Mat& obstaclesIn
        imshow("Obstacles in Water", obstaclesInWater);
 }
 
-
+/**
+ * @brief runEM
+ * @param image
+ * @return
+ */
 int runEM(Mat& image) {
     Mat totalDiff;
     Mat sqrtOldP, sqrtNewP;

@@ -9,6 +9,11 @@ std::vector<vNode*> diffBins(256);
 std::vector<vNode> dummyNodes;
 const int K = 3;
 
+/**
+ * @brief createVertexGrid
+ * @param rows
+ * @param cols
+ */
 void createVertexGrid(int rows, int cols) {
     vNodes.resize(rows*cols);
 
@@ -69,6 +74,9 @@ void createVertexGrid(int rows, int cols) {
     }
 }
 
+/**
+ * @brief resetNodes
+ */
 void resetNodes() {
     auto v_it = vNodes.begin();
     vNode *node;
@@ -88,6 +96,41 @@ void resetNodes() {
     }
 }
 
+/**
+ * @brief initializeDiffBins
+ */
+void initializeDiffBins() {
+    dummyNodes.resize(256);
+    for (int i = 0; i < 256; i++) {
+        diffBins[i] = &dummyNodes[i];
+    }
+}
+
+/**
+ * @brief setSeedNodes
+ * @param seedNodeMap
+ */
+void setSeedNodes(Mat &seedNodeMap) {
+    auto v_it = vNodes.begin();
+    vNode *node = &*v_it;
+    //We have to set upper left corner to a seed node
+    node->seedNode = true;
+    for (int row = 0; row < seedNodeMap.rows; row++) {
+        unsigned char* seedNodeRow = seedNodeMap.ptr<uint8_t>(row);
+        for (int col = 0; col < seedNodeMap.cols; col++) {
+            node = &*v_it;
+            if (seedNodeRow[col] == 255) {
+                node->seedNode = true;
+            }
+            v_it++;
+        }
+    }
+}
+
+/**
+ * @brief updateVertexGridWeights
+ * @param im
+ */
 void updateVertexGridWeights(Mat& im) {
     //clear all the arrays but vNodes
     leaves.clear();
@@ -164,107 +207,10 @@ void updateVertexGridWeights(Mat& im) {
     }
 }
 
-void setSeedNodes(Mat &seedNodeMap) {
-    auto v_it = vNodes.begin();
-    vNode *node = &*v_it;
-    //We have to set upper left corner to a seed node
-    node->seedNode = true;
-    for (int row = 0; row < seedNodeMap.rows; row++) {
-        unsigned char* seedNodeRow = seedNodeMap.ptr<uint8_t>(row);
-        for (int col = 0; col < seedNodeMap.cols; col++) {
-            node = &*v_it;
-            if (seedNodeRow[col] == 255) {
-                node->seedNode = true;
-            }
-            v_it++;
-        }
-    }
-}
-
-void initializeDiffBins() {
-    dummyNodes.resize(256);
-    for (int i = 0; i < 256; i++) {
-        diffBins[i] = &dummyNodes[i];
-    }
-}
-
-void visualizeMST(Mat im) {
-    Mat imZeros = Mat::zeros(im.rows*20, im.cols*20, CV_8U);
-    Mat MBDimage = Mat::zeros(im.rows, im.cols, CV_8U);
-    vNode *root = &*vNodes.begin();
-    auto v_it = vNodes.begin();
-    for (int row = 0; row < im.rows; row++) {
-        for (int col = 0; col < im.cols; col++) {
-            vNode *curNode = &*v_it;
-            //draw a dot for the current position
-            circle(imZeros, Point2i(col*20+5,row*20+5),2,Scalar(255,255,255));
-            if (curNode == root) {
-                MBDimage.at<uint8_t>(curNode->row, curNode->col) =  curNode->distance;
-                v_it++;
-                continue;
-            }
-            assert(curNode->parentEdge != NONE);
-            vNode *parentNode = curNode->neighbours[curNode->parentEdge];
-            arrowedLine(imZeros, Point2i(parentNode->col*20+5,parentNode->row*20+5), Point2i(curNode->col*20+5,curNode->row*20+5),Scalar(255,255,255),1,8,0,0.25);
-
-           /* for (int i = 0; i < curNode->childEdges.size(); i++) {
-                vNode *childNode = curNode->childEdges[i];
-                arrowedLine(imZeros, Point2i(curNode->col*20+5,curNode->row*20+5), Point2i(childNode->col*20+5,childNode->row*20+5),Scalar(255,255,255),1,8,0,0.25);
-            }*/
-            //draw a line to the neighbour point, but make sure to offset so we can see how many edges there are
-
-            MBDimage.at<uint8_t>(curNode->row, curNode->col) = curNode->distance == UINT8_MAX+1? 128: curNode->distance;
-            v_it++;
-        }
-    }
-    //imshow("test", imZeros);
-
-    float scale = 1.0;
-    Size size(scale*MBDimage.cols, scale*MBDimage.rows);
-    Mat scaledImage;
-    resize(MBDimage, scaledImage, size, 0,0, INTER_NEAREST);
-    imshow("mbd", scaledImage);
-
-    resize(im, scaledImage, size, 0,0, INTER_NEAREST);
-    imshow("orig", scaledImage);
-}
-
-void insert(int weight, vNode** n) {
-    assert(n);
-    vNode *node = *n;
-    diffMap[weight] = 1;
-    vNode **existingNode = diffBins[weight]->mapNext;
-    node->mapNext = existingNode;
-    node->mapPrev = &diffBins[weight];
-    if (existingNode) {
-        (*existingNode)->mapPrev = n;
-    }
-    diffBins[weight]->mapNext = n;
-}
-
-void remove(vNode* node) {
-    (*(node->mapPrev))->mapNext = node->mapNext;
-    if (node->mapNext)
-        (*(node->mapNext))->mapPrev = node->mapPrev;
-    node->mapNext = node->mapPrev = nullptr;
-    int weight = node->weights[node->parentEdge];
-    diffMap.set(weight, (diffBins[weight]->mapNext != nullptr));
-}
-
-vNode* extractMin() {
-    int first;// = diffMap._Find_first();
-    for (int i = 0; i < 256; i++) {
-        if (diffMap.test(i)) {
-            first = i;
-            break;
-        }
-    }
-    assert(diffBins[first]->mapNext);
-    vNode *min = *(diffBins[first]->mapNext);
-    remove(min);
-    return min;
-}
-
+/**
+ * @brief createMST
+ * @param im
+ */
 void createMST(Mat& im) {
     assert(im.rows >= 2 && im.cols >= 2);
     vNode *root = &*vNodes.begin();
@@ -300,6 +246,80 @@ void createMST(Mat& im) {
     }
 }
 
+/**
+ * @brief insert
+ * @param weight
+ * @param n
+ */
+void insert(int weight, vNode** n) {
+    assert(n);
+    vNode *node = *n;
+    diffMap[weight] = 1;
+    vNode **existingNode = diffBins[weight]->mapNext;
+    node->mapNext = existingNode;
+    node->mapPrev = &diffBins[weight];
+    if (existingNode) {
+        (*existingNode)->mapPrev = n;
+    }
+    diffBins[weight]->mapNext = n;
+}
+
+/**
+ * @brief remove
+ * @param node
+ */
+void remove(vNode* node) {
+    (*(node->mapPrev))->mapNext = node->mapNext;
+    if (node->mapNext)
+        (*(node->mapNext))->mapPrev = node->mapPrev;
+    node->mapNext = node->mapPrev = nullptr;
+    int weight = node->weights[node->parentEdge];
+    diffMap.set(weight, (diffBins[weight]->mapNext != nullptr));
+}
+
+/**
+ * @brief extractMin
+ * @return
+ */
+vNode* extractMin() {
+    int first;// = diffMap._Find_first();
+    for (int i = 0; i < 256; i++) {
+        if (diffMap.test(i)) {
+            first = i;
+            break;
+        }
+    }
+    assert(diffBins[first]->mapNext);
+    vNode *min = *(diffBins[first]->mapNext);
+    remove(min);
+    return min;
+}
+
+/**
+ * @brief visualizeMST
+ * @param im
+ */
+void visualizeMST(Mat im) {
+    Mat imZeros = Mat::zeros(im.rows*20, im.cols*20, CV_8U);
+    auto v_it = vNodes.begin();
+    for (int row = 0; row < im.rows; row++) {
+        for (int col = 0; col < im.cols; col++) {
+            vNode *curNode = &*v_it;
+            //draw a dot for the current position
+            circle(imZeros, Point2i(col*20+5,row*20+5),2,Scalar(255,255,255));
+            for (int i = 0; i < curNode->childEdges.size(); i++) {
+                vNode *childNode = curNode->childEdges[i];
+                arrowedLine(imZeros, Point2i(curNode->col*20+5,curNode->row*20+5), Point2i(childNode->col*20+5,childNode->row*20+5),Scalar(255,255,255),1,8,0,0.25);
+            }
+            v_it++;
+        }
+    }
+    imshow("MST", imZeros);
+}
+
+/**
+ * @brief passUp
+ */
 void passUp() {
     //get leaves first
     std::queue<vNode*> bfsQueue;
@@ -355,6 +375,9 @@ void passUp() {
     }
 }
 
+/**
+ * @brief passDown
+ */
 void passDown() {
     std::queue<vNode*> bfsQueue;
     vNode *curNode;
@@ -393,6 +416,53 @@ void passDown() {
     }
 }
 
+/**
+ * @brief getMSTDistanceImage
+ * @param mst_image
+ */
+void getMSTDistanceImage(Mat& mst_image) {
+    auto im_it = mst_image.begin<float>();
+    auto v_it = vNodes.begin();
+    vNode* curNode;
+    for (int row = 0; row < mst_image.rows; row++) {
+       for (int col = 0; col < mst_image.cols; col++) {
+           curNode = &*v_it;
+           (*im_it) = curNode->distance/255.0;
+           ++v_it;
+           ++im_it;
+       }
+    }
+}
+
+/**
+ * @brief getBoundaryPix
+ * @param color_im
+ * @param boundaryPixels
+ * @param boundarySize
+ */
+void getBoundaryPix(Mat& color_im, std::vector<cv::Point3f>& boundaryPixels, int boundarySize) {
+    auto color_it = color_im.begin<cv::Vec3b>();
+    cv::Vec3b color;
+    int count = 0;
+    for (int row = 0; row < color_im.rows; row++) {
+       for (int col = 0; col < color_im.cols; col++) {
+           if (row < boundarySize || row >= color_im.rows-boundarySize || col < boundarySize || col >= color_im.cols-boundarySize) {
+               color = *color_it;
+               boundaryPixels[count] = (cv::Point3f(color[0], color[1], color[2]));
+               count++;
+           }
+           ++color_it;
+       }
+    }
+    assert(boundaryPixels.size() == count);
+}
+
+/**
+ * @brief getDissimiliarityImage
+ * @param boundaryPixels
+ * @param in
+ * @param out
+ */
 void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Mat& out) {
     Mat labels;
     int numPix = boundaryPixels.size();
@@ -457,41 +527,16 @@ void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Ma
     }
 }
 
-void getMBDImage(Mat& mbd_image) {
-    auto im_it = mbd_image.begin<float>();
-    auto v_it = vNodes.begin();
-    vNode* curNode;
-    for (int row = 0; row < mbd_image.rows; row++) {
-       for (int col = 0; col < mbd_image.cols; col++) {
-           curNode = &*v_it;
-           (*im_it) = curNode->distance/255.0;
-           ++v_it;
-           ++im_it;
-       }
-    }
-}
-
-void getBoundaryPix(Mat& color_im, std::vector<cv::Point3f>& boundaryPixels, int boundarySize) {
-    auto color_it = color_im.begin<cv::Vec3b>();
-    cv::Vec3b color;
-    int count = 0;
-    for (int row = 0; row < color_im.rows; row++) {
-       for (int col = 0; col < color_im.cols; col++) {
-           if (row < boundarySize || row >= color_im.rows-boundarySize || col < boundarySize || col >= color_im.cols-boundarySize) {
-               color = *color_it;
-               boundaryPixels[count] = (cv::Point3f(color[0], color[1], color[2]));
-               count++;
-           }
-           ++color_it;
-       }
-    }
-    assert(boundaryPixels.size() == count);
-}
-
-
+/**
+ * @brief treeFilter
+ * @param dis_image
+ * @param mbd_image
+ * @param size
+ * @param sigD
+ */
 void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
     int row, col, rowStart, rowEnd, colStart, colEnd, fRow, fCol;
-    float treeDiff, curIntensity, weight, curTreeDist, total_bilateral_weight, total_bilateral_result;
+    float treeDiff, curIntensity, weight, curTreeDist, total_tree_weight, total_tree_result;
     Mat result = Mat::zeros(dis_image.rows, dis_image.cols, CV_32F);
     std::vector<float*>dis_image_row(dis_image.rows);
     std::vector<float*>mbd_image_row(mbd_image.rows);
@@ -506,26 +551,30 @@ void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
             colStart = max(col-size, 0);
             colEnd = min(col+size, dis_image.cols-1);
             curTreeDist = mbd_image_row[row][col];
-            total_bilateral_weight = 0;
-            total_bilateral_result = 0;
+            total_tree_weight = 0;
+            total_tree_result = 0;
             //filter each pixel and sum the total as we go so we can normalize at the end
             for (fRow = rowStart; fRow <= rowEnd; fRow++) {
                 for (fCol = colStart; fCol <= colEnd; fCol++) {
                     treeDiff = std::abs(curTreeDist-mbd_image_row[fRow][fCol]);
                     curIntensity = dis_image_row[fRow][fCol];
                     weight = exp(-treeDiff*treeDiff/(2*sigD));
-                    total_bilateral_result += weight*curIntensity;
-                    total_bilateral_weight += weight;
+                    total_tree_result += weight*curIntensity;
+                    total_tree_weight += weight;
                 }
             }
             //normalize the result
-            total_bilateral_result /= total_bilateral_weight;
-            result.at<float>(row,col) = total_bilateral_result;
+            total_tree_result /= total_tree_weight;
+            result.at<float>(row,col) = total_tree_result;
         }
     }
     dis_image = result;
 }
 
+/**
+ * @brief postProcessing
+ * @param combined
+ */
 void postProcessing(Mat& combined) {
     Mat intermediate;
     Mat rawCombined = combined.clone();

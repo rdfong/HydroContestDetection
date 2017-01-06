@@ -658,7 +658,7 @@ int main(int argc, char *argv[])
      passUp();
      passDown();
 
-     cvtColor(scaledImage, lab, CV_BGR2Lab);
+     cvtColor(scaledImage, lab, CV_BGR2HSV);
      int boundary_size = 20;
      int num_boundary_pixels = (boundary_size*2*(gray_image.cols+gray_image.rows)-4*boundary_size*boundary_size);
      std::vector<cv::Point3f> boundaryPixels(num_boundary_pixels);

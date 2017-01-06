@@ -10,13 +10,19 @@ using namespace cv;
 
 #define VIDEO 0
 
-//File setup
+//File setup variables
 std::ofstream scoreFile;
 std::string name;
 std::string output;
 std::string waitString;
 std::string imageFolder;
 
+/**
+ * @brief main
+ * @param argc
+ * @param argv
+ * @return
+ */
 int main(int argc, char *argv[])
 {
 #if VIDEO == 0
@@ -56,8 +62,8 @@ int main(int argc, char *argv[])
     shoreLine.resize(GMMimage.cols);
 
     //MST Initialization
-    Mat gray_image, lab, mbd_image, dis_image, new_dis_image, combined;
-    mbd_image = Mat::zeros(rows, cols, CV_32FC1);
+    Mat gray_image, lab, mst_image, dis_image, new_dis_image, combined;
+    mst_image = Mat::zeros(rows, cols, CV_32FC1);
     dis_image = Mat::zeros(rows, cols, CV_32FC1);
     new_dis_image = Mat::zeros(rows, cols, CV_32FC1);
     std::vector<int> horizonLine;
@@ -72,11 +78,11 @@ int main(int argc, char *argv[])
     //PER IMAGE GMM/MST Code
     /**********GMM CODE**********/
     //Get boundary dissimiliarity image here for use by GMM Seed node finding
-    cvtColor(originalImage, lab, CV_BGR2YCrCb);
+    cvtColor(originalImage, lab, CV_BGR2HSV);
     getBoundaryPix(lab, boundaryPixels, boundary_size);
     getDissimiliarityImage(boundaryPixels, lab, dis_image);
-    treeFilter(dis_image, mbd_image, 3, 0.5);
-    bilateralFilter(dis_image, new_dis_image, 3, 0.5, 0.5);
+    treeFilter(dis_image, mst_image, 4, 0.5);
+    bilateralFilter(dis_image, new_dis_image, 4, 0.5, 0.5);
 
     //Initialize model
     cvtColor(GMMimage, GMMimage, CV_BGR2HSV);
@@ -93,19 +99,19 @@ int main(int argc, char *argv[])
     /***********MST CODE***********/
     //Create MST representation
     cvtColor(originalImage, gray_image, CV_BGR2GRAY );
-    GaussianBlur(gray_image, gray_image, Size(5, 5), 2);
+    GaussianBlur(gray_image, gray_image, Size(3, 3), 2);
     updateVertexGridWeights(gray_image);
     setSeedNodes(seedNodes);
     createMST(gray_image);
     passUp();
     passDown();
     //Get boundary dissimiliary and tree distance maps
-    getMBDImage(mbd_image);
+    getMSTDistanceImage(mst_image);
 
     //combine images and normalize
     obstacles.convertTo(obstacles, CV_32F);
     obstacles = obstacles/255;
-    combined = mbd_image + new_dis_image;
+    combined = mst_image + new_dis_image;
     double minVal, maxVal;
     cv::minMaxLoc(combined, &minVal, &maxVal);
     combined /= maxVal;
@@ -124,7 +130,7 @@ int main(int argc, char *argv[])
     std::cout << "Processing Time/Image: " << (t2-t1)/getTickFrequency() << std::endl;
 
    //Display results
-   imshow("Tree Distance Image", mbd_image);
+   imshow("Tree Distance Image", mst_image);
    imshow("Boundary Dissimiliarty", new_dis_image);
    imshow("Combined MST result", combined);
    imshow("Bounding Boxes MST", originalImage);

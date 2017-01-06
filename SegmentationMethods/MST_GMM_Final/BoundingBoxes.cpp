@@ -24,8 +24,13 @@ std::vector<std::pair<Point2i, Point2i> > finalBoxBounds;
 std::vector<Mat> input(3);
 std::vector<int> groupsToMerge;
 
-//Finding final contours from binary map
 
+/**
+ * @brief getNonZeroPix
+ * @param mask
+ * @param im
+ * @param nonZeroSubset
+ */
 template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {
     Mat imValues = im.reshape(0, im.rows*im.cols);
     Mat flattenedMask = mask.reshape(0, im.rows*im.cols);
@@ -39,6 +44,13 @@ template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {
     }
 }
 
+/**
+ * @brief findContoursAndWriteResults
+ * @param obstacleMap
+ * @param image
+ * @param scoreFile
+ * @param outputName
+ */
 void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& scoreFile, std::string outputName) {
    hierarchy.clear();
    contours.clear();
@@ -167,7 +179,10 @@ void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& sc
    imwrite(outputName, image);
 }
 
-
+/**
+ * @brief customOtsuThreshold
+ * @param im
+ */
 void customOtsuThreshold(Mat& im) {
     float percent = 1.0;
     int curThresh = 0;
