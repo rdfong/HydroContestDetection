@@ -26,10 +26,10 @@ std::vector<int> groupsToMerge;
 
 
 /**
- * @brief getNonZeroPix
- * @param mask
- * @param im
- * @param nonZeroSubset
+ * @brief getNonZeroPix     Gets all values of pixels specified by the mask
+ * @param mask              Mask of which pixels to get values from im
+ * @param im                The image to retrieve values from
+ * @param nonZeroSubset     The output of the desired values
  */
 template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {
     Mat imValues = im.reshape(0, im.rows*im.cols);
@@ -45,11 +45,11 @@ template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {
 }
 
 /**
- * @brief findContoursAndWriteResults
- * @param obstacleMap
- * @param image
- * @param scoreFile
- * @param outputName
+ * @brief findContoursAndWriteResults   Finds all contours and surrounding bounding boxes, writes to file and displays
+ * @param obstacleMap                   The binary map of obstacles
+ * @param image                         The original image on top of which we'll write rectangles
+ * @param scoreFile                     The file handle to write to
+ * @param outputName                    The file name to write the bounding box coordinates and dimensions to
  */
 void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& scoreFile, std::string outputName) {
    hierarchy.clear();
@@ -181,15 +181,16 @@ void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& sc
 }
 
 /**
- * @brief customOtsuThreshold
- * @param im
+ * @brief customOtsuThreshold   Does otsu thresholding repeated until a certain percent of the image remains
+ * @param im                    The grayscale image to be thresholded
  */
 void customOtsuThreshold(Mat& im) {
     float percent = 1.0;
     int curThresh = 0;
     Mat threshed = Mat::ones(im.rows, im.cols, CV_8U);
-
-    while (percent > .25 && curThresh <= 255) {
+    //The remaining percentage to stop thresholding at
+    float remainingPercent = .25;
+    while (percent > remainingPercent && curThresh <= 255) {
         Mat temp, nonZeroSubset;
         getNonZeroPix<unsigned char>(threshed, im, nonZeroSubset);
         int newThresh = (int)threshold(nonZeroSubset, temp, 0, 255, THRESH_OTSU);

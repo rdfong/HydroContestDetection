@@ -7,8 +7,6 @@
 
 using namespace cv;
 
-#define VIDEO 0
-
 #define USE_WEAK_PRIOR 0
 // Disable weak prior, not flexible enough for purposes and actually made some results worse
 #if USE_WEAK_PRIOR == 1
@@ -38,7 +36,7 @@ Mat lambda1;
 
 double uniformComponent;
 
-//SETUP FOR BOX SELECTION
+//SETUP FOR BOX SELECTION AND MERGING
 int imgCount = 1;
 int dims = 3;
 const int sizes[] = {64,64,64};
@@ -57,18 +55,25 @@ Mat bgr[3];
 Rect curRect, otherRect, originalRect, intersection, rectUnion;
 std::vector<std::vector<Rect> > intersectionGroups;
 std::vector<std::pair<Point2i, Point2i> > finalBoxBounds;
- std::vector<Mat> input(3);
- std::vector<int> groupsToMerge;
+std::vector<Mat> input(3);
+std::vector<int> groupsToMerge;
 
- //File setup
- std::ofstream scoreFile;
- std::string name;
- std::string output;
- std::string waitString;
- std::string imageFolder;
+//File setup
+std::ofstream scoreFile;
+std::string name;
+std::string output;
+std::string waitString;
+std::string imageFolder;
 
 int leftIntercept, rightIntercept;
 
+//-------------------Bounding box code---------------------//
+/**
+ * @brief getNonZeroPix     Gets all values of pixels specified by the mask
+ * @param mask              Mask of which pixels to get values from im
+ * @param im                The image to retrieve values from
+ * @param nonZeroSubset     The output of the desired values
+ */
  template<typename T> void  getNonZeroPix(Mat mask, Mat im, Mat& nonZeroSubset) {
      Mat imValues = im.reshape(0, im.rows*im.cols);
      Mat flattenedMask = mask.reshape(0, im.rows*im.cols);
@@ -83,10 +88,18 @@ int leftIntercept, rightIntercept;
  }
 
 
+/**
+ * @brief findContoursAndWriteResults   Finds all contours and surrounding bounding boxes, writes to file and displays
+ * @param obstacleMap                   The binary map of obstacles
+ * @param image                         The original image on top of which we'll write rectangles
+ * @param scoreFile                     The file handle to write to
+ * @param outputName                    The file name to write the bounding box coordinates and dimensions to
+ */
 void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, bool display) {
     hierarchy.clear();
     contours.clear();
     boundRects.clear();
+    originalRects.clear();
     findContours( obstacleMap.clone(), contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
     //get bounding rects from contours
     int expand = 1;
@@ -214,6 +227,12 @@ void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, bool display) {
     imwrite(output+name, image);
 }
 
+//-----------------------------------------------//
+
+/**
+ * @brief initializePriorsAndPosteriorStructures    Initialize structures containing prior and posterior information
+ * @param image
+ */
 void initializePriorsAndPosteriorStructures(Mat image) {
     for (int i = 0; i < 4; i++) {
         if (i < 3) {
@@ -271,9 +290,13 @@ void initializePriorsAndPosteriorStructures(Mat image) {
 #endif
 }
 
+/**
+ * @brief initializeLabelPriors Initialize priors either with an even distribution or information from the previous frame
+ * @param image                 The current frame
+ * @param usePrevious           Whether or not to use previous frame information
+ */
 void initializeLabelPriors(Mat image, bool usePrevious) {
     if (usePrevious) {
-        //TODO: Untested on video due to lack of real time horizon data
         double nonUniformSum = 1.0-uniformComponent;
         std::cout << nonUniformSum << std::endl;
         Mat QSum = posteriorQ[0] + posteriorQ[1] + posteriorQ[2];
@@ -298,12 +321,11 @@ void initializeLabelPriors(Mat image, bool usePrevious) {
     }
 }
 
+/**
+ * @brief initializeGaussianModels  Initialize gaussian model parameters based on the horizon line
+ * @param image                     The current frame
+ */
 void initializeGaussianModels(Mat image) {
-    //If we have confident horizon line estimatse we can have good estimates
-    //If do not however we assume the height spread for the gaussians, 0.0-0.2, 0.2-0.4,0.6-1.0
-    //It is assumed here that the horizon line lies between 0.4 and 0.6
-
-    //We start with this implementing under this assumption, if a better horizon line detection comes up, we'll use it
     int skyCount = 0;
     int landCount = 0;
     int waterCount = 0;
@@ -370,11 +392,16 @@ void initializeGaussianModels(Mat image) {
         imageFeatures.row(i).copyTo(regionMats[indexToRegion[i].first].row(indexToRegion[i].second));
     }
 
+    //Calculate gaussian parameters
     cv::calcCovarMatrix(regionMats[0], covars[0], means[0], CV_COVAR_NORMAL | CV_COVAR_ROWS | CV_COVAR_SCALE);
     cv::calcCovarMatrix(regionMats[1], covars[1], means[1], CV_COVAR_NORMAL | CV_COVAR_ROWS | CV_COVAR_SCALE);
     cv::calcCovarMatrix(regionMats[2], covars[2], means[2], CV_COVAR_NORMAL | CV_COVAR_ROWS | CV_COVAR_SCALE);
 }
 
+/**
+ * @brief setDataFromFrame  Set 5 feature vector info from frame
+ * @param image             The current frame
+ */
 void setDataFromFrame(Mat image) {
     imageFeatures = Mat::zeros(image.rows*image.cols, 5, CV_64F);
     int index = 0;
@@ -392,6 +419,10 @@ void setDataFromFrame(Mat image) {
     }
 }
 
+/**
+ * @brief updatePriorsAndPosteriors The expectation step of the the EM algorithm
+ * @param image                     The current frame
+ */
 void updatePriorsAndPosteriors(Mat image) {
     //Make sure matrices are well conditioned
     int result0 = invert(covars[0]+Mat::eye(5,5,CV_64F).mul(covars[0])*1e-10, icovars[0]);
@@ -399,6 +430,7 @@ void updatePriorsAndPosteriors(Mat image) {
     int result2 = invert(covars[2]+Mat::eye(5,5,CV_64F).mul(covars[2])*1e-10, icovars[2]);
     assert(result0 && result1 && result2);
 
+    //Using equation 12 from paper
     Mat priMultMat[4];
     Mat priSum = Mat::zeros(image.rows, image.cols, CV_64F);
     Mat mahalanobis;
@@ -446,10 +478,14 @@ void updatePriorsAndPosteriors(Mat image) {
     }
 }
 
+/**
+ * @brief updateGaussianParameters  The maximization step of the EM algortihm
+ * @param image                     The current frame
+ */
 void updateGaussianParameters(Mat image) {
     Mat lambda, meanDiff, meanDiffT, featureSum;
     Mat meanOpt, covarOpt;
-    //Use equations 10 and 11
+    //Use equations 10 and 11 from paper
     for (int i = 0; i < 3; i++) {
         //Used by both updates
        double Bk = cv::sum(posteriorQ[i])[0];
@@ -491,51 +527,15 @@ void updateGaussianParameters(Mat image) {
     }
 }
 
-void findShoreLine(Mat coloredImage, std::map<int, int>& shoreLine, bool useHorizon, bool display) {
-    if (useHorizon) {
-        for (int col = 0; col < coloredImage.cols; col++) {
-            int curHPoint = (rightIntercept-leftIntercept)*((double)col/coloredImage.cols)+leftIntercept;
-            coloredImage.at<Vec3b>(curHPoint,col) = Vec3b(0,0,0);
-            shoreLine[col] = curHPoint;
-        }
-    } else {
-        float areaRatioLimit = 0.1;
-        cv::Scalar lowerb = cv::Scalar(0,0,0);
-        cv::Scalar upperb = cv::Scalar(255,0,0);
-        Mat mask;
-        cv::inRange(coloredImage, lowerb, upperb, mask);
-        Mat labels;
-        Mat stats;
-        Mat centroids;
-        int connectedCount = cv::connectedComponentsWithStats(mask, labels, stats, centroids);
-        Mat waterBinary = Mat::zeros(mask.rows, mask.cols, CV_8U);
-        for (int label = 0; label < connectedCount; label++) {
-            Mat temp;
-            int area = stats.at<int>(label, CC_STAT_AREA);
-            if ((float)area/(mask.rows * mask.cols) > areaRatioLimit) {
-                cv::inRange(labels, Scalar(label), Scalar(label), temp);
-                add(waterBinary, temp, waterBinary,mask);
-            }
-        }
-        //Anything white component that is above whose lowest pixel starts at the black line or below is considered as an obstacle
-        for (int col = 0; col < waterBinary.cols; col++) {
-            int row;
-            for (row = 0; row < waterBinary.rows; row++) {
-                if (waterBinary.at<uint8_t>(row, col) == 255) {
-                    break;
-                }
-            }
-            row = std::max(--row,0);
-            coloredImage.at<Vec3b>(row,col) = Vec3b(0,0,0);
-            shoreLine[col] = row;
-        }
-    }
-
-    if (display)
-        imshow("Water Zone", coloredImage);
-}
-
-void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
+/**
+ * @brief findZonesAndObstacles   Draws the water/land/sky zone mapping. Also turns zones to water if enough of it lies beneath the shore line
+ *                      Also finds all potential obstacles.
+ * @param image
+ * @param zoneMapping
+ * @param obstacleMap
+ * @param display
+ */
+void findZonesAndObstacles(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
     zoneMapping = image.clone();
     for (int i = 0; i < 3; i++) {
         GaussianBlur(posteriorP[i],posteriorP[i],Size(3,3), 3.0, 3.0, BORDER_REPLICATE);
@@ -623,7 +623,66 @@ void drawMapping(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
     }
 }
 
-void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display) {
+/**
+ * @brief findShoreLine     Finds the vector of row positions (indexed by column positions) to be considered as the boundary with water
+ * @param coloredImage      The current frame
+ * @param shoreLine         The vector that stores the water line row positions
+ * @param useHorizon        If true we use the shoreline defined by the model, otherwise just use horizon line information
+ * @param display           If true we display the resulting line on the zone mapping
+ */
+void findShoreLine(Mat coloredImage, std::map<int, int>& shoreLine, bool useHorizon, bool display) {
+    if (useHorizon) {
+        for (int col = 0; col < coloredImage.cols; col++) {
+            int curHPoint = (rightIntercept-leftIntercept)*((double)col/coloredImage.cols)+leftIntercept;
+            coloredImage.at<Vec3b>(curHPoint,col) = Vec3b(0,0,0);
+            shoreLine[col] = curHPoint;
+        }
+    } else {
+        float areaRatioLimit = 0.1;
+        cv::Scalar lowerb = cv::Scalar(0,0,0);
+        cv::Scalar upperb = cv::Scalar(255,0,0);
+        Mat mask;
+        cv::inRange(coloredImage, lowerb, upperb, mask);
+        Mat labels;
+        Mat stats;
+        Mat centroids;
+        int connectedCount = cv::connectedComponentsWithStats(mask, labels, stats, centroids);
+        Mat waterBinary = Mat::zeros(mask.rows, mask.cols, CV_8U);
+        for (int label = 0; label < connectedCount; label++) {
+            Mat temp;
+            int area = stats.at<int>(label, CC_STAT_AREA);
+            if ((float)area/(mask.rows * mask.cols) > areaRatioLimit) {
+                cv::inRange(labels, Scalar(label), Scalar(label), temp);
+                add(waterBinary, temp, waterBinary,mask);
+            }
+        }
+        //Anything white component that is above whose lowest pixel starts at the black line or below is considered as an obstacle
+        for (int col = 0; col < waterBinary.cols; col++) {
+            int row;
+            for (row = 0; row < waterBinary.rows; row++) {
+                if (waterBinary.at<uint8_t>(row, col) == 255) {
+                    break;
+                }
+            }
+            row = std::max(--row,0);
+            coloredImage.at<Vec3b>(row,col) = Vec3b(0,0,0);
+            shoreLine[col] = row;
+        }
+    }
+
+    if (display)
+        imshow("Water Zone", coloredImage);
+}
+
+
+/**
+ * @brief findObstaclesInWater  Find all obstacles that are under the water line
+ * @param shoreLine             The water line, calculated from findShoreLine
+ * @param obstacles             The full obstacle map
+ * @param obstaclesInWater      The resulting filtered obstacle map
+ * @param display               If true, display binary map of obstacles in water
+ */
+void findObstaclesInWater(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display) {
     //simply return any white connected white blobs that are under the zone shift
     //do it by scanning up, once the line has been passed, switch on a flag such that it tends once the current run ends
     obstaclesInWater = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);
@@ -636,6 +695,7 @@ void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstacles
     Mat centroids;
     Mat temp;
     int connectedCount = cv::connectedComponentsWithStats(uniformObstacles, labels, stats, centroids);
+    //Find obstacles defined by the uniform component where the bottom edge of the blob in question must be underneath the shore line
     for (int label = 0; label < connectedCount; label++) {
          int* statsForLabel = stats.ptr<int>(label);
          int bottomRow = statsForLabel[CC_STAT_TOP]+statsForLabel[CC_STAT_HEIGHT]-1;
@@ -652,7 +712,7 @@ void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstacles
              add(obstaclesInWater, temp, obstaclesInWater, uniformObstacles);
          }
     }
-    //non uniform
+    //Find obstacles defined by regions of non water and non uniform areas contained in the water area (must be fully contained)
     connectedCount = cv::connectedComponentsWithStats(nonUniformObstacles, labels, stats, centroids);
     for (int label = 0; label < connectedCount; label++) {
          int* statsForLabel = stats.ptr<int>(label);
@@ -675,7 +735,6 @@ void findObstacles(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstacles
 
 int main(int argc, char *argv[])
 {
-#if VIDEO == 0
     std::cout << "Path name: " << argv[1] <<std::endl;
     std::cout << "Image name: " << argv[2] <<std::endl;
     std::cout << "Output folder: " << argv[3] <<std::endl;
@@ -730,7 +789,6 @@ int main(int argc, char *argv[])
     lambda1 = lambda0.clone();
     lambda1.at<double>(kernelWidth/2,kernelWidth/2) = 1.0;
 
-    //For use by method
     Mat zones;
     Mat obstacles;
     std::map<int,int> shoreLine;
@@ -748,6 +806,7 @@ int main(int argc, char *argv[])
     initializeLabelPriors(image, false);
     initializeGaussianModels(image);
 
+    //Run EM iterations until convergence
     int iter = 0;
     while (iter < 5) {
         oldPriors[0] = imagePriors[0].clone();
@@ -772,9 +831,10 @@ int main(int argc, char *argv[])
         updateGaussianParameters(image);
         iter++;
     }
-    drawMapping(image, zones, obstacles, false);
+    //Find the different regions and obstacles
+    findZonesAndObstacles(image, zones, obstacles, false);
     findShoreLine(zones, shoreLine, useHorizon, false);
-    findObstacles(shoreLine, obstacles, obstaclesInWater, false);
+    findObstaclesInWater(shoreLine, obstacles, obstaclesInWater, false);
     int64 t2 = getTickCount();
     std::cout << (t2-t1)/getTickFrequency() << std::endl;
 
@@ -783,24 +843,5 @@ int main(int argc, char *argv[])
     if (wait)
         waitKey(0);
     scoreFile.close();
-#elif VIDEO == 1
-
-    VideoCapture cap("../../TestMedia/videos/boatm30.mp4"); // open the default camera
-    if(!cap.isOpened()) {  // check if we succeeded
-        std::cout << "no vid" << std::endl;
-        return -1;
-    }
-
-   Mat image;
-   for(;;)
-   {
-       cap >> image; // get a new frame fro m camera
-       if (image.rows == 0 || image.cols == 0)
-           continue;
-
-         waitKey(1);
-   }
-
-#endif
     return 0;
 }

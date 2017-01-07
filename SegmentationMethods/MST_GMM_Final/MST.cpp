@@ -211,7 +211,7 @@ void updateVertexGridWeights(Mat& im) {
  * @brief createMST
  * @param im
  */
-void createMST(Mat& im) {
+void createMST() {
     assert(im.rows >= 2 && im.cols >= 2);
     vNode *root = &*vNodes.begin();
     //special case the root since it has no parent node

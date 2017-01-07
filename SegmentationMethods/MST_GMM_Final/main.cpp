@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
     GaussianBlur(gray_image, gray_image, Size(3, 3), 2);
     updateVertexGridWeights(gray_image);
     setSeedNodes(seedNodes);
-    createMST(gray_image);
+    createMST();
     passUp();
     passDown();
     //Get boundary dissimiliary and tree distance maps

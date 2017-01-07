@@ -52,7 +52,7 @@ void setSeedNodes(Mat& seedNodeMap);
 void updateVertexGridWeights(Mat& im);
 
 //Based on the updated weights, create a minimum spanning tree, populating child and parent fields of each node
-void createMST(Mat& im);
+void createMST();
 
 //Edge insertion, removal and extraction methods used for creating MST via Prim's algorithm
 void insert(int weight, vNode** n);
