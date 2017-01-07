@@ -55,6 +55,7 @@ void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& sc
    hierarchy.clear();
    contours.clear();
    boundRects.clear();
+    originalRects.clear();
    findContours( obstacleMap.clone(), contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
    //get bounding rects from contours
    int expand = 1;
