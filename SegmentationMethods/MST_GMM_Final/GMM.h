@@ -41,7 +41,7 @@ void findShoreLine(Mat& coloredImage, std::vector<int>& shoreLine, bool display)
 void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display);
 
 //Create a binary map of all obstacles in the scene taking the horizon/shoreline into account
-void findObstacles(std::vector<int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display);
+void findObstaclesInWater(std::vector<int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display);
 
 //Run expectation maximization until posterior assignment converges
 int runEM(Mat& image);

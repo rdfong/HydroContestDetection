@@ -529,11 +529,11 @@ void updateGaussianParameters(Mat image) {
 
 /**
  * @brief findZonesAndObstacles   Draws the water/land/sky zone mapping. Also turns zones to water if enough of it lies beneath the shore line
- *                      Also finds all potential obstacles.
- * @param image
- * @param zoneMapping
- * @param obstacleMap
- * @param display
+ *                              Also finds all potential obstacles.
+ * @param image                 The current frame
+ * @param zoneMapping           Map that will contain the output zones (sky, land, water)
+ * @param obstacleMap           Map that will contain the detected potential obstacles
+ * @param display               If true, displays obstacles
  */
 void findZonesAndObstacles(Mat image, Mat& zoneMapping, Mat& obstacleMap, bool display) {
     zoneMapping = image.clone();

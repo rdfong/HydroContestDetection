@@ -10,9 +10,9 @@ std::vector<vNode> dummyNodes;
 const int K = 3;
 
 /**
- * @brief createVertexGrid
- * @param rows
- * @param cols
+ * @brief createVertexGrid  Create the initial vertex grid which just defined
+ * @param rows              Number of rows of the grid
+ * @param cols              Number of columns of the grid
  */
 void createVertexGrid(int rows, int cols) {
     vNodes.resize(rows*cols);
@@ -75,7 +75,7 @@ void createVertexGrid(int rows, int cols) {
 }
 
 /**
- * @brief resetNodes
+ * @brief resetNodes    Reset the node information
  */
 void resetNodes() {
     auto v_it = vNodes.begin();
@@ -97,7 +97,7 @@ void resetNodes() {
 }
 
 /**
- * @brief initializeDiffBins
+ * @brief initializeDiffBins    Initialize the priority queue used to efficiently extract the minimum weight vNode during Prim's algorithm
  */
 void initializeDiffBins() {
     dummyNodes.resize(256);
@@ -107,8 +107,8 @@ void initializeDiffBins() {
 }
 
 /**
- * @brief setSeedNodes
- * @param seedNodeMap
+ * @brief setSeedNodes  Set which nodes in the tree are seed nodes
+ * @param seedNodeMap   The seed node map
  */
 void setSeedNodes(Mat &seedNodeMap) {
     auto v_it = vNodes.begin();
@@ -128,8 +128,8 @@ void setSeedNodes(Mat &seedNodeMap) {
 }
 
 /**
- * @brief updateVertexGridWeights
- * @param im
+ * @brief updateVertexGridWeights   Based on the new image, update the weights between each node and its neighbours
+ * @param im                        The new image
  */
 void updateVertexGridWeights(Mat& im) {
     //clear all the arrays but vNodes
@@ -208,8 +208,7 @@ void updateVertexGridWeights(Mat& im) {
 }
 
 /**
- * @brief createMST
- * @param im
+ * @brief createMST     Creates the minimum spanning tree from the nodes and edges previously calculated
  */
 void createMST() {
     assert(im.rows >= 2 && im.cols >= 2);
@@ -247,9 +246,9 @@ void createMST() {
 }
 
 /**
- * @brief insert
- * @param weight
- * @param n
+ * @brief insert    Insert a node into MST
+ * @param weight    Weight of the node which represents it's current minimum weight connection with the rest of the tree
+ * @param n         The node to be inserted
  */
 void insert(int weight, vNode** n) {
     assert(n);
@@ -265,8 +264,8 @@ void insert(int weight, vNode** n) {
 }
 
 /**
- * @brief remove
- * @param node
+ * @brief remove    Remove a node from the diffMap
+ * @param node      The node to be removed
  */
 void remove(vNode* node) {
     (*(node->mapPrev))->mapNext = node->mapNext;
@@ -278,8 +277,8 @@ void remove(vNode* node) {
 }
 
 /**
- * @brief extractMin
- * @return
+ * @brief extractMin    Extracting the node from diffMap that has the minimum edge weight from the existing tree
+ * @return              The extracted node.
  */
 vNode* extractMin() {
     int first;// = diffMap._Find_first();
@@ -296,8 +295,9 @@ vNode* extractMin() {
 }
 
 /**
- * @brief visualizeMST
- * @param im
+ * @brief visualizeMST  Display the MST with connections
+ * @param im            The original image
+ *                      Note: probably best not to run this on a large image since it will display a grid that is 20x larger
  */
 void visualizeMST(Mat im) {
     Mat imZeros = Mat::zeros(im.rows*20, im.cols*20, CV_8U);
@@ -318,7 +318,8 @@ void visualizeMST(Mat im) {
 }
 
 /**
- * @brief passUp
+ * @brief passUp Does a depth first pass up from the leaves of the tree to the root to calculate distance transform values
+ *               passDown needs to be run after to complete the transform calculations
  */
 void passUp() {
     //get leaves first
@@ -376,7 +377,8 @@ void passUp() {
 }
 
 /**
- * @brief passDown
+ * @brief passDown Does a root breadth first pass of a tree to finalize the tree distance transform values
+ *                  This needs to be run after the passUp
  */
 void passDown() {
     std::queue<vNode*> bfsQueue;
@@ -417,8 +419,8 @@ void passDown() {
 }
 
 /**
- * @brief getMSTDistanceImage
- * @param mst_image
+ * @brief getMSTDistanceImage   Get the image showing the values at each node of the grid
+ * @param mst_image             The output MST distance transform image
  */
 void getMSTDistanceImage(Mat& mst_image) {
     auto im_it = mst_image.begin<float>();
@@ -435,10 +437,10 @@ void getMSTDistanceImage(Mat& mst_image) {
 }
 
 /**
- * @brief getBoundaryPix
- * @param color_im
- * @param boundaryPixels
- * @param boundarySize
+ * @brief getBoundaryPix    Get the boundary pixels vector
+ * @param color_im          The current frame
+ * @param boundaryPixels    The vector to store the boundary pixels in
+ * @param boundarySize      The width of the boundary to be considered as background
  */
 void getBoundaryPix(Mat& color_im, std::vector<cv::Point3f>& boundaryPixels, int boundarySize) {
     auto color_it = color_im.begin<cv::Vec3b>();
@@ -458,10 +460,10 @@ void getBoundaryPix(Mat& color_im, std::vector<cv::Point3f>& boundaryPixels, int
 }
 
 /**
- * @brief getDissimiliarityImage
- * @param boundaryPixels
- * @param in
- * @param out
+ * @brief getDissimiliarityImage    Get the dissimiliarity map given the boundary pixels
+ * @param boundaryPixels            A vector of pixels that comprise the boundary of the image
+ * @param in                        The original full color image
+ * @param out                       The dissimiliarity map to be outputted
  */
 void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Mat& out) {
     Mat labels;
@@ -528,11 +530,11 @@ void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Ma
 }
 
 /**
- * @brief treeFilter
- * @param dis_image
- * @param mbd_image
- * @param size
- * @param sigD
+ * @brief treeFilter    Blurs the image while retaining structural elements defined by the tree distance transform
+ * @param dis_image     Dissimiliarity image to be blurred
+ * @param mst_image     The distance transform image
+ * @param size          Radius of the gaussian blur kernel
+ * @param sigD          Sigma of the gaussian blur kernel
  */
 void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
     int row, col, rowStart, rowEnd, colStart, colEnd, fRow, fCol;
@@ -572,8 +574,8 @@ void treeFilter(Mat& dis_image, Mat& mbd_image, int size, float sigD) {
 }
 
 /**
- * @brief postProcessing
- * @param combined
+ * @brief postProcessing    Perform post processing on the combined MST distance and boundary dissimiliarity map as defined by the paper
+ * @param combined          The combined MST distance and boundary dissimiliarity map
  */
 void postProcessing(Mat& combined) {
     Mat intermediate;

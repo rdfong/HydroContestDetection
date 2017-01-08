@@ -417,29 +417,6 @@ void updateVertexGridWeights(Mat im) {
 }
 
 /**
- * @brief visualizeMST  Display the MST with connections
- * @param im            The original image
- *                      Note: probably best not to run this on a large image since it will display a grid that is 20x larger
- */
-void visualizeMST(Mat im) {
-    Mat imZeros = Mat::zeros(im.rows*20, im.cols*20, CV_8U);
-    auto v_it = vNodes.begin();
-    for (int row = 0; row < im.rows; row++) {
-        for (int col = 0; col < im.cols; col++) {
-            vNode *curNode = &*v_it;
-            //draw a dot for the current position
-            circle(imZeros, Point2i(col*20+5,row*20+5),2,Scalar(255,255,255));
-            for (int i = 0; i < curNode->childEdges.size(); i++) {
-                vNode *childNode = curNode->childEdges[i];
-                arrowedLine(imZeros, Point2i(curNode->col*20+5,curNode->row*20+5), Point2i(childNode->col*20+5,childNode->row*20+5),Scalar(255,255,255),1,8,0,0.25);
-            }
-            v_it++;
-        }
-    }
-    imshow("MST", imZeros);
-}
-
-/**
  * @brief insert    Insert a node into MST
  * @param weight    Weight of the node which represents it's current minimum weight connection with the rest of the tree
  * @param n         The node to be inserted
@@ -523,6 +500,29 @@ void createMST() {
             }
         }
     }
+}
+
+/**
+ * @brief visualizeMST  Display the MST with connections
+ * @param im            The original image
+ *                      Note: probably best not to run this on a large image since it will display a grid that is 20x larger
+ */
+void visualizeMST(Mat im) {
+    Mat imZeros = Mat::zeros(im.rows*20, im.cols*20, CV_8U);
+    auto v_it = vNodes.begin();
+    for (int row = 0; row < im.rows; row++) {
+        for (int col = 0; col < im.cols; col++) {
+            vNode *curNode = &*v_it;
+            //draw a dot for the current position
+            circle(imZeros, Point2i(col*20+5,row*20+5),2,Scalar(255,255,255));
+            for (int i = 0; i < curNode->childEdges.size(); i++) {
+                vNode *childNode = curNode->childEdges[i];
+                arrowedLine(imZeros, Point2i(curNode->col*20+5,curNode->row*20+5), Point2i(childNode->col*20+5,childNode->row*20+5),Scalar(255,255,255),1,8,0,0.25);
+            }
+            v_it++;
+        }
+    }
+    imshow("MST", imZeros);
 }
 
 /**

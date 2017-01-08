@@ -34,9 +34,9 @@ int hLeftIntercept, hRightIntercept, hWidth, hHeight;
 int leftIntercept, rightIntercept;
 
 /**
- * @brief parseHorizonInfo
- * @param image
- * @param horizonFileName
+ * @brief parseHorizonInfo  Get horizon line information from file
+ * @param image             The current frame
+ * @param horizonFileName   Name of the horizon line info file
  */
 void parseHorizonInfo(Mat& image, std::string horizonFileName) {
     std::ifstream horizonFile;
@@ -51,8 +51,8 @@ void parseHorizonInfo(Mat& image, std::string horizonFileName) {
 }
 
 /**
- * @brief initializeKernelInfo
- * @param image
+ * @brief initializeKernelInfo  Initialize kernel info to be used to put MRF constraints on the optimization
+ * @param image                 Current frame (used for kernel size info)
  */
 void initializeKernelInfo(Mat& image) {
     int kernelWidth = (2*((int)(.1*image.rows)))+1;
@@ -69,7 +69,7 @@ void initializeKernelInfo(Mat& image) {
 }
 
 /**
- * @brief initializePriorsAndPosteriorStructures
+ * @brief initializePriorsAndPosteriorStructures    Initialize structures containing prior and posterior information
  * @param image
  */
 void initializePriorsAndPosteriorStructures(Mat& image) {
@@ -130,13 +130,12 @@ void initializePriorsAndPosteriorStructures(Mat& image) {
 }
 
 /**
- * @brief initializeLabelPriors
- * @param image
- * @param usePrevious
+ * @brief initializeLabelPriors Initialize priors either with an even distribution or information from the previous frame
+ * @param image                 The current frame
+ * @param usePrevious           Whether or not to use previous frame information
  */
 void initializeLabelPriors(Mat& image, bool usePrevious) {
    if (usePrevious) {
-       //TODO: Untested on video due to lack of real time horizon data
        double nonUniformSum = 1.0-uniformComponent;
        Mat QSum = posteriorQ[0] + posteriorQ[1] + posteriorQ[2];
        for (int i = 0; i < 3; i++) {
@@ -161,15 +160,10 @@ void initializeLabelPriors(Mat& image, bool usePrevious) {
 }
 
 /**
- * @brief initializeGaussianModels
- * @param image
+ * @brief initializeGaussianModels  Initialize gaussian model parameters based on the horizon line
+ * @param image                     The current frame
  */
 void initializeGaussianModels(Mat& image) {
-   //If we have confident horizon line estimatse we can have good estimates
-   //If do not however we assume the height spread for the gaussians, 0.0-0.2, 0.2-0.4,0.6-1.0
-   //It is assumed here that the horizon line lies between 0.4 and 0.6
-
-   //We start with this implementing under this assumption, if a better horizon line detection comes up, we'll use it
    int skyCount = 0;
    int landCount = 0;
    int waterCount = 0;
@@ -242,8 +236,8 @@ void initializeGaussianModels(Mat& image) {
 }
 
 /**
- * @brief setDataFromFrame
- * @param image
+ * @brief setDataFromFrame  Set 5 feature vector info from frame
+ * @param image             The current frame
  */
 void setDataFromFrame(Mat& image) {
    imageFeatures = Mat::zeros(image.rows*image.cols, 5, CV_64F);
@@ -263,8 +257,8 @@ void setDataFromFrame(Mat& image) {
 }
 
 /**
- * @brief updatePriorsAndPosteriors
- * @param image
+ * @brief updatePriorsAndPosteriors The expectation step of the the EM algorithm
+ * @param image                     The current frame
  */
 void updatePriorsAndPosteriors(Mat& image) {
    //Make sure matrices are well conditioned
@@ -321,8 +315,8 @@ void updatePriorsAndPosteriors(Mat& image) {
 }
 
 /**
- * @brief updateGaussianParameters
- * @param image
+ * @brief updateGaussianParameters  The maximization step of the EM algortihm
+ * @param image                     The current frame
  */
 void updateGaussianParameters(Mat& image) {
    Mat lambda, meanDiff, meanDiffT, featureSum;
@@ -362,24 +356,26 @@ void updateGaussianParameters(Mat& image) {
 }
 
 /**
- * @brief findHorizonLine
- * @param shoreLine
- * @param s
+ * @brief findHorizonLine   Finds the vector of row positions (indexed by column positions) to be considered as the boundary with
+ *                          using the horizon line information
+ * @param horizonLine       The vector that stores the water line row positions
+ * @param s                 Size of the image to find the horizon line for (in case different from original size in which horizon is specified)
  */
-void findHorizonLine(std::vector<int>& shoreLine, cv::Size s) {
+void findHorizonLine(std::vector<int>& horizonLine, cv::Size s) {
     int sLeftIntercept = (double)s.height/hHeight*hLeftIntercept;
     int sRightIntercept = (double)s.height/hHeight*hRightIntercept;
     for (int col = 0; col < s.width; col++) {
         int curHPoint = (sRightIntercept-sLeftIntercept)*((double)col/s.width)+sLeftIntercept;
-        shoreLine[col] = curHPoint;
+        horizonLine[col] = curHPoint;
     }
 }
 
 /**
- * @brief findShoreLine
- * @param coloredImage
- * @param shoreLine
- * @param display
+ * @brief findShoreLine     Finds the vector of row positions (indexed by column positions) to be considered as the boundary with water
+ * @param coloredImage      The current frame
+ * @param shoreLine         The vector that stores the water line row positions
+ * @param display           If true we display the resulting line on the zone mapping
+ *                          NOTE: UNUSED
  */
 void findShoreLine(Mat& coloredImage, std::vector<int>& shoreLine, bool display) {
     float areaRatioLimit = 0.1;
@@ -418,11 +414,11 @@ void findShoreLine(Mat& coloredImage, std::vector<int>& shoreLine, bool display)
 }
 
 /**
- * @brief findSeedNodes
- * @param image
- * @param dis_image
- * @param seedNodes
- * @param display
+ * @brief findSeedNodes     Find all nodes to be marked as background seed nodes for the MST algorithm
+ * @param image             The current frame
+ * @param dis_image         Boundary dissimiliarity image
+ * @param seedNodes         Output background seed node map
+ * @param display           If true display the seed node map
  */
 void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display) {
    seedNodes = Mat::ones(dis_image.rows, dis_image.cols, CV_8U)*255;
@@ -432,9 +428,10 @@ void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display) {
    dis_image = dis_image*255;
    Mat disThresh;
    dis_image.convertTo(disThresh, CV_8U);
-   //threshold(disThresh, disThresh, 0, 255, THRESH_OTSU);
   customOtsuThreshold(disThresh);
 
+  //TODO: I should be going through each zone and check to see if there are isolated non-uniform component zones within each zone
+  //      and treat those as obstacles as well, though it won't affect results much since these cases are rare
    double* posteriorRows[4];
    for (int row = 0; row < image.rows; row++) {
        uint8_t* gmmUniformRowPtr = gmmUniformComps.ptr<uint8_t>(row);
@@ -488,15 +485,18 @@ void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display) {
        uint8_t* disThreshRowPtr = disThresh.ptr<uint8_t>(row);
        uint8_t* gmmUniformRowPtr = gmmUniformCompsScaled.ptr<uint8_t>(row);
        for (int col = 0; col < dis_image.cols; col++) {
+           //Set a seed node if detected as an obstacle in the GMM Model or the dissimiliarity map
            if (gmmUniformRowPtr[col] == 255 || disThreshRowPtr[col] == 255) {
                seedNodeRowPtr[col] = 0;
            }
        }
    }
 
+   //Erode around non-seed node areas until only part of the some percentage is left as seed nodes
+   double percentRemaining = 0.75;
    Mat structural = getStructuringElement(MORPH_ELLIPSE, Size(5, 5));
    if (cv::sum(seedNodes)[0]/255 != seedNodes.rows*seedNodes.cols) {
-       while (cv::sum(seedNodes)[0]/255 > 0.75*seedNodes.rows*seedNodes.cols) {
+       while (cv::sum(seedNodes)[0]/255 > percentRemaining*seedNodes.rows*seedNodes.cols) {
             morphologyEx(seedNodes, seedNodes, MORPH_ERODE, structural);
        }
    }
@@ -506,13 +506,13 @@ void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display) {
 }
 
 /**
- * @brief findObstacles
- * @param shoreLine
- * @param obstacles
- * @param obstaclesInWater
- * @param display
+ * @brief findObstaclesInWater  Find all obstacles that are under the water line
+ * @param shoreLine             The water line, calculated from findHorizonLine
+ * @param obstacles             The full obstacle map
+ * @param obstaclesInWater      The resulting filtered obstacle map
+ * @param display               If true, display binary map of obstacles in water
  */
-void findObstacles(std::vector<int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display) {
+void findObstaclesInWater(std::vector<int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display) {
    //simply return any white connected white blobs that are under the zone shift
    //do it by scanning up, once the line has been passed, switch on a flag such that it tends once the current run ends
    obstaclesInWater = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);
@@ -563,9 +563,9 @@ void findObstacles(std::vector<int>& shoreLine, Mat& obstacles, Mat& obstaclesIn
 }
 
 /**
- * @brief runEM
- * @param image
- * @return
+ * @brief runEM     Run EM algorithm until the priors converge as defined by the paper's support code
+ * @param image     The current frame
+ * @return          Returns the number of iterations it took (max 5)
  */
 int runEM(Mat& image) {
     Mat totalDiff;

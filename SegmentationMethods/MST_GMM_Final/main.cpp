@@ -8,8 +8,6 @@
 
 using namespace cv;
 
-#define VIDEO 0
-
 //File setup variables
 std::ofstream scoreFile;
 std::string name;
@@ -17,15 +15,8 @@ std::string output;
 std::string waitString;
 std::string imageFolder;
 
-/**
- * @brief main
- * @param argc
- * @param argv
- * @return
- */
 int main(int argc, char *argv[])
 {
-#if VIDEO == 0
     std::cout << "Path name: " << argv[1] <<std::endl;
     std::cout << "Image name: " << argv[2] <<std::endl;
     std::cout << "Output folder: " << argv[3] <<std::endl;
@@ -45,6 +36,7 @@ int main(int argc, char *argv[])
         printf("No image data \n");
         return -1;
     }
+
 
     imshow("Original", originalImage);
     int cols = originalImage.cols;
@@ -121,7 +113,7 @@ int main(int argc, char *argv[])
     postProcessing(combined);
     customOtsuThreshold(combined);
     findHorizonLine(horizonLine, cv::Size(combined.cols, combined.rows));
-    findObstacles(horizonLine, combined, obstaclesInWaterMST, true);
+    findObstaclesInWater(horizonLine, combined, obstaclesInWaterMST, true);
     findContoursAndWriteResults(obstaclesInWaterMST, originalImage, scoreFile, output+name);
 
     int t2 = getTickCount();
@@ -136,26 +128,8 @@ int main(int argc, char *argv[])
 
     //**************END MAIN CODE SECTION*************//
    scoreFile.close();
+
    if (wait)
         waitKey(0);
-#elif VIDEO == 1
-
-    VideoCapture cap("../../TestMedia/videos/boatm30.mp4"); // open the default camera
-    if(!cap.isOpened()) {  // check if we succeeded
-        std::cout << "no vid" << std::endl;
-        return -1;
-    }
-
-   Mat image;
-   for(;;)
-   {
-       cap >> image; // get a new frame fro m camera
-       if (image.rows == 0 || image.cols == 0)
-           continue;
-
-         waitKey(1);
-   }
-
-#endif
     return 0;
 }
