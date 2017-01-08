@@ -466,6 +466,7 @@ void getBoundaryPix(Mat& color_im, std::vector<cv::Point3f>& boundaryPixels, int
  * @param out                       The dissimiliarity map to be outputted
  */
 void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Mat& out) {
+    //Cluster the background pixels into 3 clusters
     Mat labels;
     int numPix = boundaryPixels.size();
     kmeans(boundaryPixels,K,labels,TermCriteria(TermCriteria::EPS+TermCriteria::COUNT, 3, 0.001), 1, KMEANS_RANDOM_CENTERS);
@@ -498,6 +499,7 @@ void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Ma
         backgroundMeans[k] = mean.clone();
     }
 
+    //Get differences with cluster means
     auto out_it_0 = backgroundDisMaps[0].begin<float>();
     auto out_it_1 = backgroundDisMaps[1].begin<float>();
     auto out_it_2 = backgroundDisMaps[2].begin<float>();
@@ -520,6 +522,7 @@ void getDissimiliarityImage(std::vector<cv::Point3f>& boundaryPixels, Mat&in, Ma
         }
     }
 
+   //Get final background dissimiliarity
     for (int k = 0; k < K; k++) {
         double minVal;
         double maxVal;

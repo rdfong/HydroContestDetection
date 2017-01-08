@@ -173,11 +173,11 @@ void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& sc
        curRect = Rect(finalBoxBounds[i].first, finalBoxBounds[i].second);
        if (curRect.area() > 50) {
          rectangle(image, curRect, Scalar(0, 255,0), 2);
-         //scoreFile << "other\n" << curRect.tl().x << " " << curRect.tl().y << " "
-         //                    << curRect.width << " " << curRect.height <<std::endl;
+         scoreFile << "other\n" << curRect.tl().x << " " << curRect.tl().y << " "
+                             << curRect.width << " " << curRect.height <<std::endl;
        }
    }
-  // imwrite(outputName, image);
+   imwrite(outputName, image);
 }
 
 /**

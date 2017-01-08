@@ -683,8 +683,6 @@ void findShoreLine(Mat coloredImage, std::map<int, int>& shoreLine, bool useHori
  * @param display               If true, display binary map of obstacles in water
  */
 void findObstaclesInWater(std::map<int, int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display) {
-    //simply return any white connected white blobs that are under the zone shift
-    //do it by scanning up, once the line has been passed, switch on a flag such that it tends once the current run ends
     obstaclesInWater = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);
     Mat uniformObstacles = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);
     Mat nonUniformObstacles = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);

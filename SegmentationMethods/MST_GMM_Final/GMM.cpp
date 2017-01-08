@@ -270,6 +270,7 @@ void updatePriorsAndPosteriors(Mat& image) {
    Mat priMultMat[4];
    Mat priSum = Mat::zeros(image.rows, image.cols, CV_64F);
    Mat mahalanobis;
+   //Get mahalanobis distances
    for (int i = 0; i < 3; i++) {
        Mat meanRepeated = cv::repeat(means[i], image.rows*image.cols, 1);
        Mat meanDiff = imageFeatures-meanRepeated;
@@ -287,6 +288,7 @@ void updatePriorsAndPosteriors(Mat& image) {
    priMultMat[3] = Mat::ones(image.rows, image.cols, CV_64F)*uniformComponent;
    add(priSum, priMultMat[3], priSum);
 
+   //Normalize posteriors
    posteriorP[0] = priMultMat[0]/priSum;
    posteriorP[1] = priMultMat[1]/priSum;
    posteriorP[2] = priMultMat[2]/priSum;
@@ -430,8 +432,6 @@ void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display) {
    dis_image.convertTo(disThresh, CV_8U);
   customOtsuThreshold(disThresh);
 
-  //TODO: I should be going through each zone and check to see if there are isolated non-uniform component zones within each zone
-  //      and treat those as obstacles as well, though it won't affect results much since these cases are rare
    double* posteriorRows[4];
    for (int row = 0; row < image.rows; row++) {
        uint8_t* gmmUniformRowPtr = gmmUniformComps.ptr<uint8_t>(row);
@@ -513,8 +513,6 @@ void findSeedNodes(Mat& image, Mat& dis_image, Mat& seedNodes, bool display) {
  * @param display               If true, display binary map of obstacles in water
  */
 void findObstaclesInWater(std::vector<int>& shoreLine, Mat& obstacles, Mat& obstaclesInWater, bool display) {
-   //simply return any white connected white blobs that are under the zone shift
-   //do it by scanning up, once the line has been passed, switch on a flag such that it tends once the current run ends
    obstaclesInWater = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);
    Mat uniformObstacles = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);
    Mat nonUniformObstacles = Mat::zeros(obstacles.rows, obstacles.cols, CV_8U);
@@ -524,6 +522,7 @@ void findObstaclesInWater(std::vector<int>& shoreLine, Mat& obstacles, Mat& obst
    Mat stats;
    Mat centroids;
    Mat temp;
+   //Find obstacles defined by the uniform component where the bottom edge of the blob in question must be underneath the shore line
    int connectedCount = cv::connectedComponentsWithStats(uniformObstacles, labels, stats, centroids);
    for (int label = 0; label < connectedCount; label++) {
         int* statsForLabel = stats.ptr<int>(label);
@@ -541,7 +540,7 @@ void findObstaclesInWater(std::vector<int>& shoreLine, Mat& obstacles, Mat& obst
             add(obstaclesInWater, temp, obstaclesInWater, uniformObstacles);
         }
    }
-   //non uniform
+   //Find obstacles defined by regions of non water and non uniform areas contained in the water area (must be fully contained)
    connectedCount = cv::connectedComponentsWithStats(nonUniformObstacles, labels, stats, centroids);
    for (int label = 0; label < connectedCount; label++) {
         int* statsForLabel = stats.ptr<int>(label);
@@ -584,7 +583,7 @@ int runEM(Mat& image) {
             cv::sqrt(imagePriors[i], sqrtNewP);
             totalDiff = totalDiff + sqrtOldP-sqrtNewP;
         }
-        //sort totalDiff in ascending order and take mean of second half
+        //sqrt totalDiff in ascending order and take mean of second half
         totalDiff = totalDiff.reshape(0,1);
         cv::sort(totalDiff, totalDiff, CV_SORT_DESCENDING);
         double meanDiff = cv::sum(totalDiff(Range(0,1), Range(0, totalDiff.cols/2)))[0]/(totalDiff.cols/2);
