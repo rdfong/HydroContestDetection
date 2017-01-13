@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
     shoreLine.resize(GMMimage.cols);
 
     //MST Initialization
-    Mat gray_image, lab, mst_image, dis_image, new_dis_image, combined;
+    Mat gray_image, hsv, mst_image, dis_image, new_dis_image, combined;
     mst_image = Mat::zeros(rows, cols, CV_32FC1);
     dis_image = Mat::zeros(rows, cols, CV_32FC1);
     new_dis_image = Mat::zeros(rows, cols, CV_32FC1);
@@ -70,9 +70,9 @@ int main(int argc, char *argv[])
     //PER IMAGE GMM/MST Code
     /**********GMM CODE**********/
     //Get boundary dissimiliarity image here for use by GMM Seed node finding
-    cvtColor(originalImage, lab, CV_BGR2HSV);
-    getBoundaryPix(lab, boundaryPixels, boundary_size);
-    getDissimiliarityImage(boundaryPixels, lab, dis_image);
+    cvtColor(originalImage, hsv, CV_BGR2HSV);
+    getBoundaryPix(hsv, boundaryPixels, boundary_size);
+    getDissimiliarityImage(boundaryPixels, hsv, dis_image);
     treeFilter(dis_image, mst_image, 4, 0.5);
     bilateralFilter(dis_image, new_dis_image, 4, 0.5, 0.5);
 

@@ -880,8 +880,7 @@ int main(int argc, char *argv[])
     customOtsuThreshold(combined);
 
     //Find and write contours
-    if (maxVal-minVal > 0.75)
-        findContoursAndWriteResults(combined, scaledImage, true);
+    findContoursAndWriteResults(combined, scaledImage, true);
 
     int64 t2 = getTickCount();
     imshow("mbd", mbd_image);

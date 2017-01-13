@@ -131,7 +131,7 @@ void findContoursAndWriteResults(Mat& obstacleMap, Mat& image, std::ofstream& sc
                      double sizeSim = 1.0 - ((double)rectUnion.area() - numPix1 - numPix2)/(rectUnion.area());
                     // std::cout << sizeSim << std::endl;
 
-                     if (colorSim < 2.0 || sizeSim > 0.5) {
+                     if (colorSim < 2.0 || (sizeSim > 0.5 && ((float)numPix1/curRect.area()+(float)numPix2/otherRect.area())/2.0 < sizeSim )) {
                         //merge curRect with otherRect
                          intersectionGroups[i].push_back(curRect);
                          finalBoxBounds[i].first = Point2i(min(finalBoxBounds[i].first.x, originalRect.tl().x), min(finalBoxBounds[i].first.y, originalRect.tl().y));
