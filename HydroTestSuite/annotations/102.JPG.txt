@@ -1,0 +1,32 @@
+buoy
+458 236 32 29
+boat
+90 200 132 33
+other
+66 189 372 38
+person
+72 128 40 67
+person
+103 125 24 71
+person
+124 119 20 71
+person
+168 129 22 71
+person
+187 129 25 70
+person
+208 121 29 68
+person
+239 141 39 67
+person
+268 122 39 80
+person
+308 125 30 76
+person
+336 129 21 71
+person
+349 121 28 81
+person
+367 117 32 90
+person
+392 118 35 89
