@@ -1,3 +1,6 @@
 [submodule "faster_rcnn_pytorch"]
 	path = faster_rcnn_pytorch
 	url = https://github.com/rdfong/faster_rcnn_pytorch.git
+[submodule "yolo2-pytorch"]
+	path = yolo2-pytorch
+	url = https://github.com/rdfong/yolo2-pytorch.git
