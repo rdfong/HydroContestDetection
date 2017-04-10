@@ -1,0 +1,3 @@
+[submodule "faster_rcnn_pytorch"]
+	path = faster_rcnn_pytorch
+	url = https://github.com/longcw/faster_rcnn_pytorch.git
