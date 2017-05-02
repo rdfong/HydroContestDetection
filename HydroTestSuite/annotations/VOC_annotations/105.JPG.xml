@@ -1,0 +1,29 @@
+<annotation>
+    <folder>VOC2007</folder>
+    <filename>105.JPG</filename>
+    <size>
+        <width>500</width>
+        <height>281</height>
+        <depth>3</depth>
+    </size>
+    <object>
+        <name>boat</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <xmin>2</xmin>
+        <xmax>130</xmax>
+        <ymin>68</ymin>
+        <ymax>115</ymax>
+    </object>
+    <object>
+        <name>boat</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <xmin>262</xmin>
+        <xmax>456</xmax>
+        <ymin>91</ymin>
+        <ymax>139</ymax>
+    </object>
+</annotation>
