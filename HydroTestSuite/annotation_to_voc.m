@@ -6,7 +6,7 @@ for i=1:length(a_files)
     anno_id = fopen(strcat(a_dir,'/',a_files(i).name));
     im = imread(strcat(im_dir,'/',im_files(i).name));
     
-    voc_file = strcat(a_dir,'VOC_annotations/voc_',a_files(i).name);
+    voc_file = strcat(a_dir,'VOC_annotations/',a_files(i).name);
     fileID = fopen(voc_file, 'w');
 
     [height, width, dim] = size(im);
@@ -39,14 +39,7 @@ for i=1:length(a_files)
     
     fprintf(fileID, '</annotation>\n');
     
-    
-    %Just get script to output this, then in the python files, get it to
-    %read training data from the desired folder, maybe even make
-    %VOC_annotations folder, may need a text file to specify which to test
-    %and which to train on
-    
-    %Also need the python program to a text file with bounding box info so scores
-    %can be run, can do this in test.py per image file, output directly to
-    %scores folder
+    [pathstr, name, ext] = fileparts(voc_file);
+    movefile(voc_file, fullfile(pathstr, [name '.xml']));
     
 end
