@@ -1,6 +1,8 @@
 **/build-*
 **/.DS_Store
 **/*.user
+**/*.h5
+**/*.npy
 builds
 HydroTestSuite/proposals/*
 HydroTestSuite/MST
