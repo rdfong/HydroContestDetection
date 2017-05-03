@@ -3,6 +3,7 @@ import cv2
 import torch
 import cPickle
 import numpy as np
+import sys
 
 from faster_rcnn import network
 from faster_rcnn.faster_rcnn import FasterRCNN, RPN
@@ -16,7 +17,7 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 
 # hyper-parameters
 # ------------
-imdb_name = 'voc_boat_val'
+imdb_name = sys.argv[1]
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
 #trained_model = 'models/VGGnet_fast_rcnn_iter_70000.h5'
 #trained_model = 'models/training/darknet19_voc07trainval_exp1/darknet19_voc07trainval_exp1_1.h5'

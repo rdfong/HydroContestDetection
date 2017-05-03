@@ -22,7 +22,7 @@ def preprocess(fname):
 
 # hyper-parameters
 # ------------
-imdb_name = cfg.imdb_test
+imdb_test = sys.argv[1]
 #trained_model = cfg.trained_model
 trained_model = os.path.join(cfg.train_output_dir, 'darknet19_voc07trainval_exp1_100.h5')
 output_dir = cfg.test_output_dir
@@ -114,7 +114,7 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
 
 if __name__ == '__main__':
     # data loader
-    imdb = VOCDataset(imdb_name, cfg.DATA_DIR, cfg.batch_size,
+    imdb = VOCDataset(imdb_test, cfg.DATA_DIR, cfg.batch_size,
                       yolo_utils.preprocess_test, processes=2, shuffle=False, dst_size=cfg.inp_size)
 
     net = Darknet19()

@@ -19,8 +19,9 @@ except ImportError:
     CrayonClient = None
 
 
+imbd_train = sys.argv[1]
 # data loader
-imdb = VOCDataset(cfg.imdb_train, cfg.DATA_DIR, cfg.train_batch_size,
+imdb = VOCDataset(imbd_train, cfg.DATA_DIR, cfg.train_batch_size,
                   yolo_utils.preprocess_train, processes=2, shuffle=True, dst_size=cfg.inp_size)
 print('load data succ...')
 
