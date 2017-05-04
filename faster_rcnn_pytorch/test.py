@@ -19,9 +19,9 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 # ------------
 imdb_name = sys.argv[1]
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
-#trained_model = 'models/VGGnet_fast_rcnn_iter_70000.h5'
+trained_model = 'models/VGGnet_fast_rcnn_iter_70000.h5'
 #trained_model = 'models/training/darknet19_voc07trainval_exp1/darknet19_voc07trainval_exp1_1.h5'
-trained_model = 'models/saved_model3/faster_rcnn_100000.h5'
+#trained_model = 'models/saved_model3/faster_rcnn_100000.h5'
 
 rand_seed = 1024
 
@@ -89,7 +89,6 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     det_file = os.path.join(output_dir, 'detections.pkl')
 
     for i in range(num_images):
-
         im = cv2.imread(imdb.image_path_at(i))
         _t['im_detect'].tic()
         scores, boxes = im_detect(net, im)
@@ -136,14 +135,14 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
 
     if test_boats:
         f = open('../HydroTestSuite/proposals'.join([]), 'w')
-            # Write to boat detection format
-            for i in range(len(all_boxes)):
-                f.write('obstacle\n')
-                x1 = all_boxes[i][0]
-                y1 = all_boxes[i][1]
-                x2 = all_boxes[i][2]
-                y2 = all_boxes[i][3]
-                f.write('{} {} {} {}\n'.format(x1, x2, x2-x1+1, y2-y1+1)
+        # Write to boat detection format
+        for i in range(len(all_boxes)):
+            f.write('obstacle\n')
+            x1 = all_boxes[i][0]
+            y1 = all_boxes[i][1]
+            x2 = all_boxes[i][2]
+            y2 = all_boxes[i][3]
+            f.write('{} {} {} {}\n'.format(x1, x2, x2-x1+1, y2-y1+1))
         f.close()
     print 'Evaluating detections'
     imdb.evaluate_detections(all_boxes, output_dir)
@@ -160,8 +159,8 @@ if __name__ == '__main__':
     rpn_net = full_net.rpn;
     print('load model successfully!')
 
-    test_net.cuda()
-    test_net.eval()
+    rpn_net.cuda()
+    rpn_net.eval()
 
     # evaluation
-    test_net(save_name, test_net, imdb, max_per_image, thresh=thresh, vis=vis)
+    test_net(save_name, rpn_net, imdb, max_per_image, thresh=thresh, vis=vis)

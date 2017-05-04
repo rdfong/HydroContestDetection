@@ -66,7 +66,7 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
         _t['misc'].tic()
 
         dets = np.empty([0, 5], dtype=np.float32)
-        if (len(bboxes) > 0)
+        if (len(bboxes) > 0):
             dets = np.hstack((bboxes, scores[:, np.newaxis])).astype(np.float32, copy=False)
         keep = nms(dets, 0.5)
         all_boxes[i] = dets[keep, :]
@@ -105,7 +105,7 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
             y1 = all_boxes[i][1]
             x2 = all_boxes[i][2]
             y2 = all_boxes[i][3]
-            f.write('{} {} {} {}\n'.format(all_boxes[i], 2)
+            f.write('{} {} {} {}\n'.format(all_boxes[i], 2))
         f.close()
 
     print 'Evaluating detections'
