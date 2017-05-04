@@ -154,6 +154,51 @@ class RPN(nn.Module):
 
         return rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights
 
+    def get_image_blob_noscale(self, im):
+        im_orig = im.astype(np.float32, copy=True)
+        im_orig -= self.PIXEL_MEANS
+        
+        processed_ims = [im]
+        im_scale_factors = [1.0]
+        
+        blob = im_list_to_blob(processed_ims)
+        
+        return blob, np.array(im_scale_factors)
+    
+    def get_image_blob(self, im):
+        """Converts an image into a network input.
+            Arguments:
+            im (ndarray): a color image in BGR order
+            Returns:
+            blob (ndarray): a data blob holding an image pyramid
+            im_scale_factors (list): list of image scales (relative to im) used
+            in the image pyramid
+            """
+        im_orig = im.astype(np.float32, copy=True)
+        im_orig -= self.PIXEL_MEANS
+        
+        im_shape = im_orig.shape
+        im_size_min = np.min(im_shape[0:2])
+        im_size_max = np.max(im_shape[0:2])
+        
+        processed_ims = []
+        im_scale_factors = []
+        
+        for target_size in self.SCALES:
+            im_scale = float(target_size) / float(im_size_min)
+            # Prevent the biggest axis from being more than MAX_SIZE
+            if np.round(im_scale * im_size_max) > self.MAX_SIZE:
+                im_scale = float(self.MAX_SIZE) / float(im_size_max)
+            im = cv2.resize(im_orig, None, None, fx=im_scale, fy=im_scale,
+                            interpolation=cv2.INTER_LINEAR)
+                            im_scale_factors.append(im_scale)
+                            processed_ims.append(im)
+                            
+                            # Create a blob to hold the input images
+                            blob = im_list_to_blob(processed_ims)
+                            
+        return blob, np.array(im_scale_factors)
+
     def load_from_npz(self, params):
         # params = np.load(npz_file)
         self.features.load_from_npz(params)
@@ -293,86 +338,6 @@ class FasterRCNN(nn.Module):
 
         return rois, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
 
-    def interpret_faster_rcnn(self, cls_prob, bbox_pred, rois, im_info, im_shape, nms=True, clip=True, min_score=0.0):
-        # find class
-        scores, inds = cls_prob.data.max(1)
-        scores, inds = scores.cpu().numpy(), inds.cpu().numpy()
-
-        keep = np.where((inds > 0) & (scores >= min_score))
-        scores, inds = scores[keep], inds[keep]
-
-        # Apply bounding-box regression deltas
-        keep = keep[0]
-        box_deltas = bbox_pred.data.cpu().numpy()[keep]
-        box_deltas = np.asarray([
-            box_deltas[i, (inds[i] * 4): (inds[i] * 4 + 4)] for i in range(len(inds))
-        ], dtype=np.float)
-        boxes = rois.data.cpu().numpy()[keep, 1:5] / im_info[0][2]
-        pred_boxes = bbox_transform_inv(boxes, box_deltas)
-        if clip:
-            pred_boxes = clip_boxes(pred_boxes, im_shape)
-
-        # nms
-        if nms and pred_boxes.shape[0] > 0:
-            pred_boxes, scores, inds = nms_detections(pred_boxes, scores, 0.3, inds=inds)
-
-        return pred_boxes, scores, self.classes[inds]
-
-    def detect(self, image, thr=0.3):
-        im_data, im_scales = self.get_image_blob(image)
-        im_info = np.array(
-            [[im_data.shape[1], im_data.shape[2], im_scales[0]]],
-            dtype=np.float32)
-
-        cls_prob, bbox_pred, rois = self(im_data, im_info)
-        pred_boxes, scores, classes = \
-            self.interpret_faster_rcnn(cls_prob, bbox_pred, rois, im_info, image.shape, min_score=thr)
-        return pred_boxes, scores, classes
-
-    def get_image_blob_noscale(self, im):
-        im_orig = im.astype(np.float32, copy=True)
-        im_orig -= self.PIXEL_MEANS
-
-        processed_ims = [im]
-        im_scale_factors = [1.0]
-
-        blob = im_list_to_blob(processed_ims)
-
-        return blob, np.array(im_scale_factors)
-
-    def get_image_blob(self, im):
-        """Converts an image into a network input.
-        Arguments:
-            im (ndarray): a color image in BGR order
-        Returns:
-            blob (ndarray): a data blob holding an image pyramid
-            im_scale_factors (list): list of image scales (relative to im) used
-                in the image pyramid
-        """
-        im_orig = im.astype(np.float32, copy=True)
-        im_orig -= self.PIXEL_MEANS
-
-        im_shape = im_orig.shape
-        im_size_min = np.min(im_shape[0:2])
-        im_size_max = np.max(im_shape[0:2])
-
-        processed_ims = []
-        im_scale_factors = []
-
-        for target_size in self.SCALES:
-            im_scale = float(target_size) / float(im_size_min)
-            # Prevent the biggest axis from being more than MAX_SIZE
-            if np.round(im_scale * im_size_max) > self.MAX_SIZE:
-                im_scale = float(self.MAX_SIZE) / float(im_size_max)
-            im = cv2.resize(im_orig, None, None, fx=im_scale, fy=im_scale,
-                            interpolation=cv2.INTER_LINEAR)
-            im_scale_factors.append(im_scale)
-            processed_ims.append(im)
-
-        # Create a blob to hold the input images
-        blob = im_list_to_blob(processed_ims)
-
-        return blob, np.array(im_scale_factors)
 
     def load_from_npz(self, params):
         self.rpn.load_from_npz(params)
