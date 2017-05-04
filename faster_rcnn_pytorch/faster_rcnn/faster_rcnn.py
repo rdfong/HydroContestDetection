@@ -32,6 +32,9 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
 class RPN(nn.Module):
     _feat_stride = [16, ]
     anchor_scales = [8, 16, 32]
+    PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
+    SCALES = (600,)
+    MAX_SIZE = 1000
 
     def __init__(self):
         super(RPN, self).__init__()
@@ -189,13 +192,12 @@ class RPN(nn.Module):
             # Prevent the biggest axis from being more than MAX_SIZE
             if np.round(im_scale * im_size_max) > self.MAX_SIZE:
                 im_scale = float(self.MAX_SIZE) / float(im_size_max)
-            im = cv2.resize(im_orig, None, None, fx=im_scale, fy=im_scale,
-                            interpolation=cv2.INTER_LINEAR)
-                            im_scale_factors.append(im_scale)
-                            processed_ims.append(im)
-                            
-                            # Create a blob to hold the input images
-                            blob = im_list_to_blob(processed_ims)
+            im = cv2.resize(im_orig, None, None, fx=im_scale, fy=im_scale, interpolation=cv2.INTER_LINEAR)
+            im_scale_factors.append(im_scale)
+            processed_ims.append(im)
+            
+            # Create a blob to hold the input images
+            blob = im_list_to_blob(processed_ims)
                             
         return blob, np.array(im_scale_factors)
 
