@@ -295,7 +295,7 @@ class pascal_voc(imdb):
         
         filename = 'FasterRCNN_results'
         rec, prec, ap = voc_eval(
-            filename, annopath, imagesetfile,'object', cachedir, ovthresh=0.5,
+            filename, annopath, imagesetfile,'obstacle', cachedir, ovthresh=0.5,
             use_07_metric=use_07_metric)
         print('AP for Object Detection = {:.4f}'.format(ap))
         with open(os.path.join(output_dir + '_pr.pkl'), 'w') as f:

@@ -29,7 +29,7 @@ save_name = 'faster_rcnn_100000'
 max_per_image = 300
 thresh = 0.05
 vis = False
-test_boats = True
+test_boats = False
 # ------------
 
 if rand_seed is not None:
@@ -69,8 +69,11 @@ def im_detect(net, image):
 
     features, rois = net(im_data, im_info)
     #0th element is 0 for all - dummy index
-    pred_boxes = rois.data.cpu().numpy()[:, 2:5] / im_info[0][2]
-    scores = rois.data.cpu().numpy()[:, 1]
+    #print rois.data.cpu().numpy().shape
+    pred_boxes = rois.data.cpu().numpy()[:, 1:5] / im_info[0][2]
+    #print pred_boxes
+    scores = rois.data.cpu().numpy()[:, 0:1]
+    #print scores.shape
     return scores, pred_boxes
 
 
@@ -83,7 +86,7 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     all_boxes = [[] for _ in xrange(num_images)]
 
     output_dir = get_output_dir(imdb, name)
-
+    print output_dir
     # timers
     _t = {'im_detect': Timer(), 'misc': Timer()}
     det_file = os.path.join(output_dir, 'detections.pkl')
@@ -105,15 +108,15 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
         inds = np.where(scores > thresh)[0]
         scores = scores[inds]
         boxes = boxes[inds,:]
-        dets = np.hstack((boxes, scores[:, np.newaxis])) \
+        dets = np.hstack((boxes, scores)) \
             .astype(np.float32, copy=False)
+
         keep = nms(dets, cfg.TEST.NMS)
         dets = dets[keep, :]
 
         if vis:
             im2show = vis_detections(im2show, 'Object', dets)
         all_boxes[i] = dets
-
         # Limit to max_per_image detections *over all classes*
         if max_per_image > 0:
             image_scores = np.hstack([all_boxes[i][:, -1]])
@@ -125,7 +128,22 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
 
         print 'im_detect: {:d}/{:d} {:.3f}s {:.3f}s' \
             .format(i + 1, num_images, detect_time, nms_time)
-
+    
+	print len(dets)
+        if test_boats:
+            path = imdb.image_path_at(i)
+            pathArray = path.split('/')
+            f = open('../HydroTestSuite/proposals/' + pathArray[len(pathArray)-1]+'.txt', 'w')
+            print '../HydroTestSuite/proposals/' + pathArray[len(pathArray)-1]
+            # Write to boat detection format
+            for d in range(len(dets)):
+                f.write('obstacle\n')
+                x1 = dets[d][0]
+                y1 = dets[d][1]
+                x2 = dets[d][2]
+                y2 = dets[d][3]
+                f.write('{} {} {} {}\n'.format(x1, x2, x2-x1+1, y2-y1+1))
+            f.close()
         if vis:
             cv2.imshow('test', im2show)
             cv2.waitKey(1)
@@ -133,17 +151,6 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     with open(det_file, 'wb') as f:
         cPickle.dump(all_boxes, f, cPickle.HIGHEST_PROTOCOL)
 
-    if test_boats:
-        f = open('../HydroTestSuite/proposals'.join([]), 'w')
-        # Write to boat detection format
-        for i in range(len(all_boxes)):
-            f.write('obstacle\n')
-            x1 = all_boxes[i][0]
-            y1 = all_boxes[i][1]
-            x2 = all_boxes[i][2]
-            y2 = all_boxes[i][3]
-            f.write('{} {} {} {}\n'.format(x1, x2, x2-x1+1, y2-y1+1))
-        f.close()
     print 'Evaluating detections'
     imdb.evaluate_detections(all_boxes, output_dir)
 

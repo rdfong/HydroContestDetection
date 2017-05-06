@@ -119,20 +119,24 @@ def voc_eval(detpath,
         with open(cachefile, 'r') as f:
             recs = cPickle.load(f)
 
+    class_recs = {}
     # extract gt objects for this class
     for imagename in imagenames:
         R = [obj for obj in recs[imagename]]
         bbox = np.array([x['bbox'] for x in R])
+        difficult = np.array([x['difficult'] for x in R]).astype(np.bool)
         det = [False] * len(R)
         class_recs[imagename] = {'bbox': bbox,
+                                 'difficult': difficult,
                                  'det': det}
 
     # read dets
     detfile = detpath.format(classname)
+    print detfile	 
     with open(detfile, 'r') as f:
         lines = f.readlines()
     if any(lines) == 1:
-        splitlines = [x.strip().split(' ') for x in lines]
+	splitlines = [x.strip().split(' ') for x in lines]
         image_ids = [x[0] for x in splitlines]
         confidence = np.array([float(x[1]) for x in splitlines])
         BB = np.array([[float(z) for z in x[2:]] for x in splitlines])
@@ -190,7 +194,7 @@ def voc_eval(detpath,
         # avoid divide by zero in case the first detection matches a difficult
         # ground truth
         prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
-        ap = voc_ap(rec, prec, use_07_metric)
+	ap = voc_ap(rec, prec, use_07_metric)
     else:
          rec = -1
          prec = -1
