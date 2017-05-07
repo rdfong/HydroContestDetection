@@ -3,6 +3,8 @@
 **/*.user
 **/*.h5
 **/*.npy
+**/*.pyc
+**/*.swo
 builds
 HydroTestSuite/proposals/*
 HydroTestSuite/MST
