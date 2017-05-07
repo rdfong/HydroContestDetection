@@ -117,7 +117,7 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
 
 
         scores = scores[:, 1:imdb.num_classes]
-        boxes = boxees[:,4:4*imdb.num_classes]
+        boxes = boxes[:,4:4*imdb.num_classes]
         
         scores = np.reshape(scores, (np.product(scores.shape), 1))
         boxes = np.reshape(boxes, (np.product(boxes.shape)/4,4))
