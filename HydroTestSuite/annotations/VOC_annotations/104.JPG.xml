@@ -11,19 +11,23 @@
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>47</xmin>
-        <xmax>83</xmax>
-        <ymin>215</ymin>
-        <ymax>248</ymax>
+        <bndbox>
+            <xmin>47</xmin>
+            <xmax>83</xmax>
+            <ymin>215</ymin>
+            <ymax>248</ymax>
+        </bndbox>
     </object>
     <object>
         <name>boat</name>
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>24</xmin>
-        <xmax>359</xmax>
-        <ymin>221</ymin>
-        <ymax>306</ymax>
+        <bndbox>
+            <xmin>24</xmin>
+            <xmax>359</xmax>
+            <ymin>221</ymin>
+            <ymax>306</ymax>
+        </bndbox>
     </object>
 </annotation>

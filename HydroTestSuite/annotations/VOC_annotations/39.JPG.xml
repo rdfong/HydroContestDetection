@@ -11,49 +11,59 @@
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>38</xmin>
-        <xmax>360</xmax>
-        <ymin>120</ymin>
-        <ymax>206</ymax>
+        <bndbox>
+            <xmin>38</xmin>
+            <xmax>360</xmax>
+            <ymin>120</ymin>
+            <ymax>206</ymax>
+        </bndbox>
     </object>
     <object>
         <name>boat</name>
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>179</xmin>
-        <xmax>216</xmax>
-        <ymin>81</ymin>
-        <ymax>88</ymax>
+        <bndbox>
+            <xmin>179</xmin>
+            <xmax>216</xmax>
+            <ymin>81</ymin>
+            <ymax>88</ymax>
+        </bndbox>
     </object>
     <object>
         <name>boat</name>
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>240</xmin>
-        <xmax>299</xmax>
-        <ymin>76</ymin>
-        <ymax>89</ymax>
+        <bndbox>
+            <xmin>240</xmin>
+            <xmax>299</xmax>
+            <ymin>76</ymin>
+            <ymax>89</ymax>
+        </bndbox>
     </object>
     <object>
         <name>buoy</name>
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>304</xmin>
-        <xmax>319</xmax>
-        <ymin>75</ymin>
-        <ymax>89</ymax>
+        <bndbox>
+            <xmin>304</xmin>
+            <xmax>319</xmax>
+            <ymin>75</ymin>
+            <ymax>89</ymax>
+        </bndbox>
     </object>
     <object>
         <name>boat</name>
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>321</xmin>
-        <xmax>359</xmax>
-        <ymin>79</ymin>
-        <ymax>86</ymax>
+        <bndbox>
+            <xmin>321</xmin>
+            <xmax>359</xmax>
+            <ymin>79</ymin>
+            <ymax>86</ymax>
+        </bndbox>
     </object>
 </annotation>

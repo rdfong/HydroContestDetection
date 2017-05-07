@@ -29,10 +29,12 @@ for i=1:length(a_files)
         fprintf(fileID,	'        <pose>Unspecified</pose>\n');
 		fprintf(fileID, '        <truncated>0</truncated>\n');
 		fprintf(fileID, '        <difficult>0</difficult>\n');
-        fprintf(fileID,['        <xmin>' int2str(b_x) '</xmin>\n']);
-        fprintf(fileID,['        <xmax>' int2str(b_x+b_w-1) '</xmax>\n']);
-        fprintf(fileID,['        <ymin>' int2str(b_y) '</ymin>\n']);
-        fprintf(fileID,['        <ymax>' int2str(b_y+b_h-1) '</ymax>\n']);
+        fprintf(fileID,['        <bndbox>\n']);
+        fprintf(fileID,['            <xmin>' int2str(b_x) '</xmin>\n']);
+        fprintf(fileID,['            <xmax>' int2str(b_x+b_w-1) '</xmax>\n']);
+        fprintf(fileID,['            <ymin>' int2str(b_y) '</ymin>\n']);
+        fprintf(fileID,['            <ymax>' int2str(b_y+b_h-1) '</ymax>\n']);
+        fprintf(fileID,['        </bndbox>\n']);
         fprintf(fileID, '    </object>\n');
         class = fgetl(anno_id);
     end

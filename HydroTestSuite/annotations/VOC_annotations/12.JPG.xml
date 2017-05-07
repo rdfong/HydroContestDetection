@@ -11,49 +11,59 @@
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>261</xmin>
-        <xmax>315</xmax>
-        <ymin>204</ymin>
-        <ymax>221</ymax>
+        <bndbox>
+            <xmin>261</xmin>
+            <xmax>315</xmax>
+            <ymin>204</ymin>
+            <ymax>221</ymax>
+        </bndbox>
     </object>
     <object>
         <name>boat</name>
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>333</xmin>
-        <xmax>410</xmax>
-        <ymin>192</ymin>
-        <ymax>208</ymax>
+        <bndbox>
+            <xmin>333</xmin>
+            <xmax>410</xmax>
+            <ymin>192</ymin>
+            <ymax>208</ymax>
+        </bndbox>
     </object>
     <object>
         <name>boat</name>
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>118</xmin>
-        <xmax>178</xmax>
-        <ymin>181</ymin>
-        <ymax>195</ymax>
+        <bndbox>
+            <xmin>118</xmin>
+            <xmax>178</xmax>
+            <ymin>181</ymin>
+            <ymax>195</ymax>
+        </bndbox>
     </object>
     <object>
         <name>boat</name>
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>165</xmin>
-        <xmax>232</xmax>
-        <ymin>194</ymin>
-        <ymax>208</ymax>
+        <bndbox>
+            <xmin>165</xmin>
+            <xmax>232</xmax>
+            <ymin>194</ymin>
+            <ymax>208</ymax>
+        </bndbox>
     </object>
     <object>
         <name>boat</name>
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>6</xmin>
-        <xmax>70</xmax>
-        <ymin>190</ymin>
-        <ymax>206</ymax>
+        <bndbox>
+            <xmin>6</xmin>
+            <xmax>70</xmax>
+            <ymin>190</ymin>
+            <ymax>206</ymax>
+        </bndbox>
     </object>
 </annotation>

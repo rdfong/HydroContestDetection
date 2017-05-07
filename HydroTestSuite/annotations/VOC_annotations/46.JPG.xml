@@ -11,9 +11,11 @@
         <pose>Unspecified</pose>
         <truncated>0</truncated>
         <difficult>0</difficult>
-        <xmin>65</xmin>
-        <xmax>442</xmax>
-        <ymin>160</ymin>
-        <ymax>254</ymax>
+        <bndbox>
+            <xmin>65</xmin>
+            <xmax>442</xmax>
+            <ymin>160</ymin>
+            <ymax>254</ymax>
+        </bndbox>
     </object>
 </annotation>
