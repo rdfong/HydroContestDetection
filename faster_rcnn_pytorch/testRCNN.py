@@ -84,7 +84,7 @@ def im_detect(net, image):
 
 
 def max_index(a):
-    return [a.tolist().index(max(a)), max(a)]
+    return [int(a.tolist().index(max(a))), max(a)]
 
 def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     """Test a Fast R-CNN network on an image database."""
@@ -92,8 +92,7 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     # all detections are collected into:
     #    all_boxes[cls][image] = N x 5 array of detections in
     #    (x1, y1, x2, y2, score)
-    all_boxes = [[[] for _ in xrange(num_images)]
-                 for _ in xrange(imdb.num_classes)]
+    all_boxes = [[] for _ in xrange(num_images)]
 
     output_dir = get_output_dir(imdb, name)
     print output_dir
@@ -133,38 +132,42 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
         #Get rid of background objects
         inds = np.where(maxClassIndices > 0)[0]
         maxClassIndices = maxClassIndices[inds]
-        maxClassProb = maxClassProb[inds]
+        maxClassIndices = maxClassIndices.astype(int)
+	maxClassProb = maxClassProb[inds]     
         
+        scores = np.asarray([[maxClassProb[j]] for j in range(len(maxClassIndices))], dtype=np.float)
+        boxes = np.asarray([boxes[j, (maxClassIndices[j] * 4): (maxClassIndices[j] * 4 + 4)] for j in range(len(maxClassIndices))], dtype=np.float)
         
-        scores = np.asarray([maxClassProb[i, maxClassIndices[i]]] for i in range(len(maxClassProb))], dtype=np.float)
-        boxes = np.asarray([boxes[i, (maxClassIndices[i] * 4): (maxClassIndices[i] * 4 + 4)] for i in range(len(maxClassIndices))], dtype=np.float)
+        if len(scores) > 0:
+            inds = np.where(scores > thresh)[0]
+            scores = scores[inds]
+            boxes = boxes[inds,:]
         
-        
-        inds = np.where(scores > thresh)[0]
-        scores = scores[inds]
-        boxes = boxes[inds,:]
-        dets = np.hstack((boxes, scores)) \
-            .astype(np.float32, copy=False)
+            dets = np.hstack((boxes, scores)) \
+                .astype(np.float32, copy=False)
 
-        keep = nms(dets, cfg.TEST.NMS)
-        dets = dets[keep, :]
-
+            keep = nms(dets, cfg.TEST.NMS)
+            dets = dets[keep, :]
+        else:
+            dets = []
+         
         if vis:
             im2show = vis_detections(im2show, 'Object', dets)
-        all_boxes[i] = dets
-        # Limit to max_per_image detections *over all classes*
-        if max_per_image > 0:
-            image_scores = np.hstack([all_boxes[i][:, -1]])
-            if len(image_scores) > max_per_image:
-                image_thresh = np.sort(image_scores)[-max_per_image]
-                keep = np.where(all_boxes[i][:, -1] >= image_thresh)[0]
-                all_boxes[i] = all_boxes[i][keep, :]
-        nms_time = _t['misc'].toc(average=False)
+
+        if len(dets) > 0:
+            all_boxes[i] = dets
+            # Limit to max_per_image detections *over all classes*
+            if max_per_image > 0:
+                image_scores = np.hstack([all_boxes[i][:, -1]])
+                if len(image_scores) > max_per_image:
+                    image_thresh = np.sort(image_scores)[-max_per_image]
+                    keep = np.where(all_boxes[i][:, -1] >= image_thresh)[0]
+                    all_boxes[i] = all_boxes[i][keep, :]
+            nms_time = _t['misc'].toc(average=False)
 
         print 'im_detect: {:d}/{:d} {:.3f}s {:.3f}s' \
             .format(i + 1, num_images, detect_time, nms_time)
     
-	print len(dets)
         if test_boats:
             path = imdb.image_path_at(i)
             pathArray = path.split('/')
