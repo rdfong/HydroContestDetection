@@ -3,6 +3,7 @@ import cv2
 import torch
 import numpy as np
 import cPickle
+import sys
 
 from darknet import Darknet19
 import utils.yolo as yolo_utils
@@ -23,14 +24,14 @@ def preprocess(fname):
 # hyper-parameters
 # ------------
 imdb_test = sys.argv[1]
-#trained_model = cfg.trained_model
-trained_model = os.path.join(cfg.train_output_dir, 'darknet19_voc07trainval_exp1_100.h5')
+trained_model = cfg.trained_model
+#trained_model = os.path.join(cfg.train_output_dir, 'darknet19_voc07trainval_exp1_100.h5')
 output_dir = cfg.test_output_dir
 
 max_per_image = 300
 thresh = 0.001
 vis = False
-test_boats = True
+test_boats = False
 # ------------
 
 
@@ -80,6 +81,21 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
                 all_boxes[i] = all_boxes[i][keep, :]
         nms_time = _t['misc'].toc()
 
+        if test_boats:
+            path = imdb.image_path_at(i)
+            pathArray = path.split('/')
+            f = open('../HydroTestSuite/proposals/' + pathArray[len(pathArray)-1]+'.txt', 'w')
+            print '../HydroTestSuite/proposals/' + pathArray[len(pathArray)-1]
+            # Write to boat detection format
+            for d in range(len(all_boxes[i])):
+                f.write('obstacle\n')
+                x1 = all_boxes[i][d][0]
+                y1 = all_boxes[i][d][1]
+                x2 = all_boxes[i][d][2]
+                y2 = all_boxes[i][d][3]
+                f.write('{} {} {} {}\n'.format(x1, x2, x2-x1+1, y2-y1+1))
+            f.close()
+
         if i % 20 == 0:
             print 'im_detect: {:d}/{:d} {:.3f}s {:.3f}s' \
                 .format(i + 1, num_images, detect_time, nms_time)
@@ -96,17 +112,6 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
     with open(det_file, 'wb') as f:
         cPickle.dump(all_boxes, f, cPickle.HIGHEST_PROTOCOL)
 
-    if test_boats:
-        f = open('../HydroTestSuite/proposals'.join([]), 'w')
-        # Write to boat detection format
-        for i in range(len(all_boxes)):
-            f.write('obstacle\n')
-            x1 = all_boxes[i][0]
-            y1 = all_boxes[i][1]
-            x2 = all_boxes[i][2]
-            y2 = all_boxes[i][3]
-            f.write('{} {} {} {}\n'.format(all_boxes[i], 2))
-        f.close()
 
     print 'Evaluating detections'
     imdb.evaluate_detections(all_boxes, output_dir)

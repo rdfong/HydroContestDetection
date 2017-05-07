@@ -1,62 +1,54 @@
-# --------------------------------------------------------
-# Fast R-CNN
-# Copyright (c) 2015 Microsoft
-# Licensed under The MIT License [see LICENSE for details]
-# Written by Ross Girshick
-# --------------------------------------------------------
-
-import xml.dom.minidom as minidom
-
-import os
-# import PIL
-import numpy as np
-import scipy.sparse
-import subprocess
 import cPickle
-import math
-import glob
+import os
 import uuid
-import scipy.io as sio
+import cv2
 import xml.etree.ElementTree as ET
 
-from .imdb import imdb
-from .imdb import ROOT_DIR
-import ds_utils
-from .voc_eval import voc_eval
+import numpy as np
+import scipy.sparse
 
-# TODO: make fast_rcnn irrelevant
-# >>>> obsolete, because it depends on sth outside of this project
-from ..fast_rcnn.config import cfg
+# from functools import partial
 
-
-# <<<< obsolete
+from imdb import ImageDataset
+from voc_eval import voc_eval
+# from utils.yolo import preprocess_train
 
 
-class pascal_voc(imdb):
-    def __init__(self, image_set, year, devkit_path=None):
-        imdb.__init__(self, 'voc_' + year + '_' + image_set)
-        #year here is 'boat'
-        self._year = year
-        self._image_set = image_set
-        self._devkit_path = self._get_default_path() if devkit_path is None \
-            else devkit_path
-        self._data_path = os.path.join(self._devkit_path, 'images')
-        
-        #will convert images to lower case later
-        self._image_ext = '.JPG'
-        
-        self._image_index = self._load_image_set_index()
-        # Default to roidb handler
-        # self._roidb_handler = self.selective_search_roidb
-        self._roidb_handler = self.gt_roidb
+class VOCDataset(ImageDataset):
+    def __init__(self, imdb_name, datadir, batch_size, im_processor, processes=3, shuffle=True, dst_size=None):
+        super(VOCDataset, self).__init__(imdb_name, datadir, batch_size, im_processor, processes, shuffle, dst_size)
+        meta = imdb_name.split('_')
+        self._year = meta[1]
+        self._image_set = meta[2]
+        self._devkit_path = os.path.join(datadir, 'VOCdevkit{}'.format(self._year))
+        self._data_path = os.path.join(self._devkit_path, 'VOC{}'.format(self._year))
+        assert os.path.exists(self._devkit_path), 'VOCdevkit path does not exist: {}'.format(self._devkit_path)
+        assert os.path.exists(self._data_path), 'Path does not exist: {}'.format(self._data_path)
+
+        self._classes = ('aeroplane', 'bicycle', 'bird', 'boat',
+                         'bottle', 'bus', 'car', 'cat', 'chair',
+                         'cow', 'diningtable', 'dog', 'horse',
+                         'motorbike', 'person', 'pottedplant',
+                         'sheep', 'sofa', 'train', 'tvmonitor')
+        self._class_to_ind = dict(zip(self.classes, range(self.num_classes)))
+        self._image_ext = '.jpg'
+
         self._salt = str(uuid.uuid4())
         self._comp_id = 'comp4'
 
-        assert os.path.exists(self._devkit_path), \
-            'VOCboat path does not exist: {}'.format(self._devkit_path)
-        assert os.path.exists(self._data_path), \
-            'Path does not exist: {}'.format(self._data_path)
+        # PASCAL specific config options
+        self.config = {'cleanup': True,
+                       'use_salt': True}
 
+        self.load_dataset()
+        # self.im_processor = partial(process_im, image_names=self._image_names, annotations=self._annotations)
+        # self.im_processor = preprocess_train
+
+    def load_dataset(self):
+        # set self._image_index and self._annotations
+        self._image_indexes = self._load_image_set_index()
+        self._image_names = [self.image_path_from_index(index) for index in self.image_indexes]
+        self._annotations = self._load_pascal_annotations()
     def image_path_at(self, i):
         """
         Return the absolute path to image i in the image sequence.

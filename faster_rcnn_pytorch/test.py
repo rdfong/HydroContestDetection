@@ -27,7 +27,7 @@ rand_seed = 1024
 
 save_name = 'faster_rcnn_100000'
 max_per_image = 300
-thresh = 0.05
+thresh = 0.3
 vis = False
 test_boats = False
 # ------------
@@ -136,14 +136,15 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
             f = open('../HydroTestSuite/proposals/' + pathArray[len(pathArray)-1]+'.txt', 'w')
             print '../HydroTestSuite/proposals/' + pathArray[len(pathArray)-1]
             # Write to boat detection format
-            for d in range(len(dets)):
+            for d in range(len(all_boxes[i])):
                 f.write('obstacle\n')
-                x1 = dets[d][0]
-                y1 = dets[d][1]
-                x2 = dets[d][2]
-                y2 = dets[d][3]
+                x1 = all_boxes[i][d][0]
+                y1 = all_boxes[i][d][1]
+                x2 = all_boxes[i][d][2]
+                y2 = all_boxes[i][d][3]
                 f.write('{} {} {} {}\n'.format(x1, x2, x2-x1+1, y2-y1+1))
             f.close()
+
         if vis:
             cv2.imshow('test', im2show)
             cv2.waitKey(1)

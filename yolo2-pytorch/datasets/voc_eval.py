@@ -101,7 +101,7 @@ def voc_eval(detpath,
     with open(imagesetfile, 'r') as f:
         lines = f.readlines()
     imagenames = [x.strip() for x in lines]
-
+   
     if not os.path.isfile(cachefile):
         # load annots
         recs = {}
@@ -118,13 +118,18 @@ def voc_eval(detpath,
         # load
         with open(cachefile, 'r') as f:
             recs = cPickle.load(f)
-
+    
+    class_recs = {}
+    npos = 0
     # extract gt objects for this class
     for imagename in imagenames:
         R = [obj for obj in recs[imagename]]
         bbox = np.array([x['bbox'] for x in R])
+        difficult = np.array([x['difficult'] for x in R]).astype(np.bool)
         det = [False] * len(R)
+        npos = npos + sum(~difficult)
         class_recs[imagename] = {'bbox': bbox,
+                                 'difficult': difficult,
                                  'det': det}
 
     # read dets
@@ -186,7 +191,7 @@ def voc_eval(detpath,
         # compute precision recall
         fp = np.cumsum(fp)
         tp = np.cumsum(tp)
-        rec = tp / float(nd)
+        rec = tp / float(npos)
         # avoid divide by zero in case the first detection matches a difficult
         # ground truth
         prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
