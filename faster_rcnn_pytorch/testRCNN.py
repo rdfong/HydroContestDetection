@@ -116,27 +116,11 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
             im2show = np.copy(im)
 
 
-        # skip j = 0, because it's the background class
-        # probably should flatten, check scores function
+        scores = scores[:, 1:imdb.num_classes]
+        boxes = boxees[:,4:4*imdb.num_classes]
         
-        #TODO: this is where I need to filter through
-        #Get the class with max probability and corresponding bounding box
-        #Put these into scores and boxes respectively, then continue as usual
-        
-        #Flattening Options, take max class for each box
-        #take all non background boxes
-        
-        maxClassInfo = np.apply_along_axis(max_index, 1, scores)
-        maxClassIndices = maxClassInfo[:,0]
-        maxClassProb = maxClassInfo[:,1]
-        #Get rid of background objects
-        inds = np.where(maxClassIndices > 0)[0]
-        maxClassIndices = maxClassIndices[inds]
-        maxClassIndices = maxClassIndices.astype(int)
-	maxClassProb = maxClassProb[inds]     
-        
-        scores = np.asarray([[maxClassProb[j]] for j in range(len(maxClassIndices))], dtype=np.float)
-        boxes = np.asarray([boxes[j, (maxClassIndices[j] * 4): (maxClassIndices[j] * 4 + 4)] for j in range(len(maxClassIndices))], dtype=np.float)
+        scores = np.reshape(scores, (np.product(scores.shape), 1))
+        boxes = np.reshape(boxes, (np.product(boxes.shape)/4,4))
         
         if len(scores) > 0:
             inds = np.where(scores > thresh)[0]
