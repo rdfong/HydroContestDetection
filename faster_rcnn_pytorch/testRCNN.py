@@ -27,7 +27,7 @@ rand_seed = 1024
 
 save_name = 'faster_rcnn_100000'
 max_per_image = 300
-thresh = 0.3
+thresh = 0.05
 vis = False
 test_boats = False
 # ------------
@@ -62,20 +62,29 @@ def im_detect(net, image):
         boxes (ndarray): R x (4*K) array of predicted bounding boxes
     """
 
-    im_data, im_scales = net.get_image_blob(image)
+    im_data, im_scales = net.rpn.get_image_blob(image)
     im_info = np.array(
         [[im_data.shape[1], im_data.shape[2], im_scales[0]]],
         dtype=np.float32)
 
-    features, rois = net(im_data, im_info)
-    #0th element is 0 for all - dummy index
-    #print rois.data.cpu().numpy().shape
-    pred_boxes = rois.data.cpu().numpy()[:, 1:5] / im_info[0][2]
-    #print pred_boxes
-    scores = rois.data.cpu().numpy()[:, 0:1]
-    #print scores.shape
+    cls_prob, bbox_pred, rois = net(im_data, im_info)
+    scores = cls_prob.data.cpu().numpy()
+    boxes = rois.data.cpu().numpy()[:, 1:5] / im_info[0][2]
+
+    if cfg.TEST.BBOX_REG:
+        # Apply bounding-box regression deltas
+        box_deltas = bbox_pred.data.cpu().numpy()
+        pred_boxes = bbox_transform_inv(boxes, box_deltas)
+        pred_boxes = clip_boxes(pred_boxes, image.shape)
+    else:
+        # Simply repeat the boxes, once for each class
+        pred_boxes = np.tile(boxes, (1, scores.shape[1]))
+
     return scores, pred_boxes
 
+
+def max_index(a):
+    return [a.tolist().index(max(a)), max(a)]
 
 def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     """Test a Fast R-CNN network on an image database."""
@@ -83,7 +92,8 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     # all detections are collected into:
     #    all_boxes[cls][image] = N x 5 array of detections in
     #    (x1, y1, x2, y2, score)
-    all_boxes = [[] for _ in xrange(num_images)]
+    all_boxes = [[[] for _ in xrange(num_images)]
+                 for _ in xrange(imdb.num_classes)]
 
     output_dir = get_output_dir(imdb, name)
     print output_dir
@@ -95,6 +105,10 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
         im = cv2.imread(imdb.image_path_at(i))
         _t['im_detect'].tic()
         scores, boxes = im_detect(net, im)
+        #
+        #scores (ndarray): R x K array of object class scores (K includes
+        #                                          background as object category 0)
+        #                                          boxes (ndarray): R x (4*K) array of predicted bounding boxes
         detect_time = _t['im_detect'].toc(average=False)
 
         _t['misc'].tic()
@@ -105,6 +119,27 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
 
         # skip j = 0, because it's the background class
         # probably should flatten, check scores function
+        
+        #TODO: this is where I need to filter through
+        #Get the class with max probability and corresponding bounding box
+        #Put these into scores and boxes respectively, then continue as usual
+        
+        #Flattening Options, take max class for each box
+        #take all non background boxes
+        
+        maxClassInfo = np.apply_along_axis(max_index, 1, scores)
+        maxClassIndices = maxClassInfo[:,0]
+        maxClassProb = maxClassInfo[:,1]
+        #Get rid of background objects
+        inds = np.where(maxClassIndices > 0)[0]
+        maxClassIndices = maxClassIndices[inds]
+        maxClassProb = maxClassProb[inds]
+        
+        
+        scores = np.asarray([maxClassProb[i, maxClassIndices[i]]] for i in range(len(maxClassProb))], dtype=np.float)
+        boxes = np.asarray([boxes[i, (maxClassIndices[i] * 4): (maxClassIndices[i] * 4 + 4)] for i in range(len(maxClassIndices))], dtype=np.float)
+        
+        
         inds = np.where(scores > thresh)[0]
         scores = scores[inds]
         boxes = boxes[inds,:]
@@ -164,11 +199,10 @@ if __name__ == '__main__':
     # load net
     full_net = FasterRCNN(classes=imdb.classes, debug=False)
     network.load_net(trained_model, full_net)
-    rpn_net = full_net.rpn;
     print('load model successfully!')
 
-    rpn_net.cuda()
-    rpn_net.eval()
+    full_net.cuda()
+    full_net.eval()
 
     # evaluation
-    test_net(save_name, rpn_net, imdb, max_per_image, thresh=thresh, vis=vis)
+    test_net(save_name, full_net, imdb, max_per_image, thresh=thresh, vis=vis)
