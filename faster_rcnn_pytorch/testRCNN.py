@@ -160,6 +160,7 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
             # Write to boat detection format
             for d in range(len(all_boxes[i])):
                 f.write('obstacle\n')
+                f.write('{}\n'.format(all_boxes[i][d][4]))
                 x1 = all_boxes[i][d][0]
                 y1 = all_boxes[i][d][1]
                 x2 = all_boxes[i][d][2]
