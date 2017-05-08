@@ -29,7 +29,7 @@ save_name = 'faster_rcnn_100000'
 max_per_image = 300
 thresh = 0.05
 vis = False
-test_boats = False
+test_boats = True
 # ------------
 
 if rand_seed is not None:

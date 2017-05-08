@@ -46,7 +46,7 @@ class ImageDataset(object):
                 images, gt_boxes, classes, dontcare, origin_im = self.gen.next()
                 batch['images'].append(images)
                 batch['gt_boxes'].append(gt_boxes)
-                batch['gt_classes'].append(classes)
+                #batch['gt_classes'].append(classes)
                 batch['dontcare'].append(dontcare)
                 batch['origin_im'].append(origin_im)
                 i += 1

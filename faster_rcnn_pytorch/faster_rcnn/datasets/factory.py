@@ -12,6 +12,7 @@ __sets = {}
 import numpy as np
 
 from .pascal_voc import pascal_voc
+from .boat_voc import boat_voc
 from .imagenet3d import imagenet3d
 from .kitti import kitti
 from .kitti_tracking import kitti_tracking
@@ -32,9 +33,13 @@ def _selective_search_IJCV_top_k(split, year, top_k):
 
 # Set up voc_<year>_<split> using selective search "fast" mode
 for year in ['2007', '2012', '0712', 'boat']:
-    for split in ['train', 'val', 'trainval', 'test']:
+    for split in ['train', 'val', 'trainval', 'test', 'full']:
         name = 'voc_{}_{}'.format(year, split)
-        __sets[name] = (lambda split=split, year=year:
+        if year == 'boat':
+            __sets[name] = (lambda split=split, year=year:
+                        boat_voc(split, year))
+        else:
+            __sets[name] = (lambda split=split, year=year:
                         pascal_voc(split, year))
 
 

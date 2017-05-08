@@ -11,6 +11,7 @@ import utils.network as net_utils
 from utils.nms_wrapper import nms
 from utils.timer import Timer
 from datasets.pascal_voc import VOCDataset
+from datasets.boat_voc import BoatDataset
 import cfgs.config as cfg
 
 
@@ -31,13 +32,13 @@ output_dir = cfg.test_output_dir
 max_per_image = 300
 thresh = 0.001
 vis = False
-test_boats = False
+test_boats = True
 # ------------
 
 
 def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
     num_images = imdb.num_images
-
+    print num_images
     # all detections are collected into:
     #    all_boxes[cls][image] = N x 5 array of detections in
     #    (x1, y1, x2, y2, score)
@@ -46,16 +47,15 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
     # timers
     _t = {'im_detect': Timer(), 'misc': Timer()}
     det_file = os.path.join(output_dir, 'detections.pkl')
-
+    
     for i in range(num_images):
-
         batch = imdb.next_batch()
         ori_im = batch['origin_im'][0]
         im_data = net_utils.np_to_variable(batch['images'], is_cuda=True, volatile=True).permute(0, 3, 1, 2)
-
+       
         _t['im_detect'].tic()
         bbox_pred, iou_pred, prob_pred = net(im_data)
-
+       
         # to numpy
         bbox_pred = bbox_pred.data.cpu().numpy()
         iou_pred = iou_pred.data.cpu().numpy()
@@ -80,7 +80,7 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
                 keep = np.where(all_boxes[i][:, -1] >= image_thresh)[0]
                 all_boxes[i] = all_boxes[i][keep, :]
         nms_time = _t['misc'].toc()
-
+        
         if test_boats:
             path = imdb.image_path_at(i)
             pathArray = path.split('/')
@@ -112,14 +112,13 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
     with open(det_file, 'wb') as f:
         cPickle.dump(all_boxes, f, cPickle.HIGHEST_PROTOCOL)
 
-
     print 'Evaluating detections'
     imdb.evaluate_detections(all_boxes, output_dir)
 
 
 if __name__ == '__main__':
     # data loader
-    imdb = VOCDataset(imdb_test, cfg.DATA_DIR, cfg.batch_size,
+    imdb = BoatDataset(imdb_test, cfg.DATA_DIR, cfg.batch_size,
                       yolo_utils.preprocess_test, processes=2, shuffle=False, dst_size=cfg.inp_size)
 
     net = Darknet19()
@@ -127,7 +126,6 @@ if __name__ == '__main__':
 
     net.cuda()
     net.eval()
-
+    
     test_net(net, imdb, max_per_image, thresh, vis)
-
     imdb.close()

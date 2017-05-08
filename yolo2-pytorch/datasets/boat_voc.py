@@ -14,16 +14,13 @@ from voc_eval import voc_eval
 # from utils.yolo import preprocess_train
 
 
-class VOCDataset(ImageDataset):
+class BoatDataset(ImageDataset):
     def __init__(self, imdb_name, datadir, batch_size, im_processor, processes=3, shuffle=True, dst_size=None):
-        super(VOCDataset, self).__init__(imdb_name, datadir, batch_size, im_processor, processes, shuffle, dst_size)
+        super(BoatDataset, self).__init__(imdb_name, datadir, batch_size, im_processor, processes, shuffle, dst_size)
         meta = imdb_name.split('_')
         self._year = meta[1]
         self._image_set = meta[2]
-        self._devkit_path = os.path.join(datadir, 'VOCdevkit{}'.format(self._year))
-        self._data_path = os.path.join(self._devkit_path, 'VOC{}'.format(self._year))
-        assert os.path.exists(self._devkit_path), 'VOCdevkit path does not exist: {}'.format(self._devkit_path)
-        assert os.path.exists(self._data_path), 'Path does not exist: {}'.format(self._data_path)
+        self._data_path = self._get_default_path()
 
         self._classes = ('aeroplane', 'bicycle', 'bird', 'boat',
                          'bottle', 'bus', 'car', 'cat', 'chair',
@@ -31,7 +28,7 @@ class VOCDataset(ImageDataset):
                          'motorbike', 'person', 'pottedplant',
                          'sheep', 'sofa', 'train', 'tvmonitor')
         self._class_to_ind = dict(zip(self.classes, range(self.num_classes)))
-        self._image_ext = '.jpg'
+        self._image_ext = '.JPG'
 
         self._salt = str(uuid.uuid4())
         self._comp_id = 'comp4'
@@ -49,45 +46,10 @@ class VOCDataset(ImageDataset):
         self._image_indexes = self._load_image_set_index()
         self._image_names = [self.image_path_from_index(index) for index in self.image_indexes]
         self._annotations = self._load_pascal_annotations()
-    def image_path_at(self, i):
-        """
-        Return the absolute path to image i in the image sequence.
-        """
-        return self.image_path_from_index(self._image_index[i])
 
-    def image_path_from_index(self, index):
-        """
-        Construct an image path from the image's "index" identifier.
-        """
-        image_path = os.path.join(self._data_path, 'images',
-                                  index + self._image_ext)
-        assert os.path.exists(image_path), \
-            'Path does not exist: {}'.format(image_path)
-        return image_path
-
-    def _load_image_set_index(self):
-        """
-        Load the indexes listed in this dataset's image set file.
-        """
-        # Example path to image set file:
-        # self._devkit_path + /VOCdevkit2007/VOC2007/ImageSets/Main/val.txt
-        image_set_file = os.path.join(self._data_path, 'images',
-                                      self._image_set + '.txt')
-
-        with open(image_set_file) as f:
-            image_index = [x.strip() for x in f.readlines()]
-        return image_index
-
-    def _get_default_path(self):
-        """
-        Return the default path where PASCAL VOC is expected to be installed.
-        """
-        return os.path.join(cfg.DATA_DIR, '../../HydroTestSuite/')
-
-    def gt_roidb(self):
+    def _load_pascal_annotations(self):
         """
         Return the database of ground-truth regions of interest.
-
         This function loads/saves from/to a cache file to speed up future calls.
         """
         cache_file = os.path.join(self.cache_path, self.name + '_gt_roidb.pkl')
@@ -97,20 +59,20 @@ class VOCDataset(ImageDataset):
             print '{} gt roidb loaded from {}'.format(self.name, cache_file)
             return roidb
 
-        gt_roidb = [self._load_pascal_annotation(index)
-                    for index in self.image_index]
+        gt_roidb = [self._annotation_from_index(index)
+                    for index in self.image_indexes]
         with open(cache_file, 'wb') as fid:
             cPickle.dump(gt_roidb, fid, cPickle.HIGHEST_PROTOCOL)
         print 'wrote gt roidb to {}'.format(cache_file)
 
         return gt_roidb
 
-    def _load_pascal_annotation(self, index):
+    def _annotation_from_index(self, index):
         """
         Load image and bounding boxes info from XML file in the PASCAL VOC
         format.
         """
-        filename = os.path.join(self._data_path, 'Annotations', index + '.xml')
+        filename = os.path.join(self._data_path,'../annotations/VOC_annotations/', index + '.JPG.xml')
         tree = ET.parse(filename)
         objs = tree.findall('object')
         # if not self.config['use_diff']:
@@ -125,7 +87,7 @@ class VOCDataset(ImageDataset):
 
         boxes = np.zeros((num_objs, 4), dtype=np.uint16)
         gt_classes = np.zeros((num_objs), dtype=np.int32)
-        overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
+        overlaps = np.zeros((num_objs), dtype=np.float32)
         # "Seg" area for pascal is just the box area
         seg_areas = np.zeros((num_objs), dtype=np.float32)
         ishards = np.zeros((num_objs), dtype=np.int32)
@@ -143,10 +105,10 @@ class VOCDataset(ImageDataset):
             difficult = 0 if diffc == None else int(diffc.text)
             ishards[ix] = difficult
 
-            cls = self._class_to_ind[obj.find('name').text.lower().strip()]
+            cls = 0#self._class_to_ind[obj.find('name').text.lower().strip()]
             boxes[ix, :] = [x1, y1, x2, y2]
             gt_classes[ix] = cls
-            overlaps[ix, cls] = 1.0
+            overlaps[ix] = 1.0
             seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
 
         overlaps = scipy.sparse.csr_matrix(overlaps)
@@ -157,6 +119,41 @@ class VOCDataset(ImageDataset):
                 'gt_overlaps': overlaps,
                 'flipped': False,
                 'seg_areas': seg_areas}
+
+    def image_path_at(self, i):
+        """
+        Return the absolute path to image i in the image sequence.
+        """
+        return self.image_path_from_index(self._image_indexes[i])
+
+    def image_path_from_index(self, index):
+        """
+        Construct an image path from the image's "index" identifier.
+        """
+        image_path = os.path.join(self._data_path,
+                                  index + self._image_ext)
+        assert os.path.exists(image_path), \
+            'Path does not exist: {}'.format(image_path)
+        return image_path
+
+    def _load_image_set_index(self):
+        """
+        Load the indexes listed in this dataset's image set file.
+        """
+        # Example path to image set file:
+        # self._devkit_path + /VOCdevkit2007/VOC2007/ImageSets/Main/val.txt
+        image_set_file = os.path.join(self._data_path,
+                                      self._image_set + '.txt')
+
+        with open(image_set_file) as f:
+            image_index = [x.strip() for x in f.readlines()]
+        return image_index
+
+    def _get_default_path(self):
+        """
+        Return the default path where PASCAL VOC is expected to be installed.
+        """
+        return '../HydroTestSuite/images/'
 
     def _get_comp_id(self):
         comp_id = (self._comp_id + '_' + self._salt if self.config['use_salt']
@@ -176,7 +173,7 @@ class VOCDataset(ImageDataset):
         print 'Writing VOC results file'
         filename = 'YOLO_boat_results'
         with open(filename, 'wt') as f:
-            for im_ind, index in enumerate(self.image_index):
+            for im_ind, index in enumerate(self._image_indexes):
                 dets = all_boxes[im_ind]
                 if dets == []:
                     continue
@@ -189,20 +186,17 @@ class VOCDataset(ImageDataset):
 
     def _do_python_eval(self, output_dir='output'):
         annopath = os.path.join(
-            self._devkit_path,
-            'VOC' + self._year,
-            'Annotations',
+            self._data_path,
+            '../annotations/VOC_annotations/',
             '{:s}.xml')
         imagesetfile = os.path.join(
-            self._devkit_path,
-            'VOC' + self._year,
-            'ImageSets',
-            'Main',
+            self._data_path,
             self._image_set + '.txt')
-        cachedir = os.path.join(self._devkit_path, 'annotations_cache')
+        cachedir = os.path.join(self._data_path, '../annotations_cache')
+
         aps = []
         # The PASCAL VOC metric changed in 2010
-        use_07_metric = True if int(self._year) < 2010 else False
+        use_07_metric = True
         print 'VOC07 metric? ' + ('Yes' if use_07_metric else 'No')
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
@@ -234,8 +228,8 @@ class VOCDataset(ImageDataset):
     def evaluate_detections(self, all_boxes, output_dir):
         self._write_voc_results_file(all_boxes)
         self._do_python_eval(output_dir)
-        if self.config['matlab_eval']:
-            self._do_matlab_eval(output_dir)
+        #if self.config['matlab_eval']:
+        #    self._do_matlab_eval(output_dir)
             #if self.config['cleanup']:
             #for cls in self._classes:
             #    if cls == '__background__':
@@ -253,7 +247,7 @@ class VOCDataset(ImageDataset):
 
 
 if __name__ == '__main__':
-    d = pascal_voc('trainval', '2007')
+    d = pascal_voc('test', 'boat')
     res = d.roidb
     from IPython import embed;
 
