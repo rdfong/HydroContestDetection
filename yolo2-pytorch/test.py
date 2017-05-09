@@ -94,7 +94,7 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
                 y1 = all_boxes[i][d][1]
                 x2 = all_boxes[i][d][2]
                 y2 = all_boxes[i][d][3]
-                f.write('{} {} {} {}\n'.format(x1, x2, x2-x1+1, y2-y1+1))
+                f.write('{} {} {} {}\n'.format(x1, y1, x2-x1+1, y2-y1+1))
             f.close()
 
         if i % 20 == 0:
