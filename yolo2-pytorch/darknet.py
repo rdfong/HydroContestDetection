@@ -197,7 +197,8 @@ class Darknet19(nn.Module):
         xy_pred = F.sigmoid(conv5_reshaped[:, :, :, 0:2])
         # wh_pred = torch.exp(conv5_reshaped[:, :, :, 2:4])
         wh_pred = conv5_reshaped[:, :, :, 2:4]
-        bbox_pred = torch.cat([xy_pred, wh_pred], 3)
+        wh_pred_exp = torch.exp(wh_pred)
+        bbox_pred = torch.cat([xy_pred, wh_pred_exp], 3)
 
         iou_pred = F.sigmoid(conv5_reshaped[:, :, :, 4:5])
 
@@ -222,7 +223,8 @@ class Darknet19(nn.Module):
             # _boxes[:, :, :, 2:4] = torch.log(_boxes[:, :, :, 2:4])
             box_mask = box_mask.expand_as(_boxes)
             # self.bbox_loss = torch.sum(torch.pow(_boxes - bbox_pred, 2) * box_mask) / num_boxes
-            self.bbox_loss = nn.MSELoss(size_average=False)(bbox_pred * box_mask, _boxes * box_mask) / num_boxes
+            bbox_pred_log = torch.cat([xy_pred, wh_pred], 3)
+            self.bbox_loss = nn.MSELoss(size_average=False)(bbox_pred_log * box_mask, _boxes * box_mask) / num_boxes
 
             # self.iou_loss = torch.sum(torch.pow(_ious - iou_pred, 2) * iou_mask) / num_boxes
             self.iou_loss = nn.MSELoss(size_average=False)(iou_pred * iou_mask, _ious * iou_mask) / num_boxes
@@ -231,8 +233,8 @@ class Darknet19(nn.Module):
             # self.cls_loss = torch.sum(torch.pow(_classes - prob_pred, 2) * class_mask) / num_boxes
             self.cls_loss = nn.MSELoss(size_average=False)(prob_pred * class_mask, _classes * class_mask) / num_boxes
 
-        wh_pred = torch.exp(conv5_reshaped[:, :, :, 2:4])
-        bbox_pred = torch.cat([xy_pred, wh_pred], 3)
+        # wh_pred = torch.exp(conv5_reshaped[:, :, :, 2:4])
+        # bbox_pred = torch.cat([xy_pred, wh_pred], 3)
 
         return bbox_pred, iou_pred, prob_pred
 
