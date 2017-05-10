@@ -43,11 +43,7 @@ class boat_voc(imdb):
         self._data_path = os.path.join(self._devkit_path, 'images')
         
         self._classes = ('__background__',  # always index 0
-                         'aeroplane', 'bicycle', 'bird', 'boat',
-                         'bottle', 'bus', 'car', 'cat', 'chair',
-                         'cow', 'diningtable', 'dog', 'horse',
-                         'motorbike', 'person', 'pottedplant',
-                         'sheep', 'sofa', 'train', 'tvmonitor')
+                         'boat', 'buoy', 'person', 'bird', 'other')
         self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))       #will convert images to lower case later
         self._image_ext = '.JPG'
         

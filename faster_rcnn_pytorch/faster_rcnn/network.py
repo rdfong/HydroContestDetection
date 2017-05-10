@@ -49,7 +49,7 @@ def load_net(fname, net):
         v.copy_(param)
 
 
-def load_pretrained_npy(faster_rcnn_model, fname):
+def load_pretrained_npy(faster_rcnn_model, fname, vgg16_only=False):
     params = np.load(fname).item()
     # vgg16
     vgg16_dict = faster_rcnn_model.rpn.features.state_dict()
@@ -69,6 +69,9 @@ def load_pretrained_npy(faster_rcnn_model, fname):
 
         val.copy_(param)
 
+    if vgg16_only:
+        return
+    
     # fc6 fc7
     frcnn_dict = faster_rcnn_model.state_dict()
     pairs = {'fc6.fc': 'fc6', 'fc7.fc': 'fc7'}

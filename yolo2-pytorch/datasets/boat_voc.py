@@ -22,11 +22,7 @@ class BoatDataset(ImageDataset):
         self._image_set = meta[2]
         self._data_path = self._get_default_path()
 
-        self._classes = ('aeroplane', 'bicycle', 'bird', 'boat',
-                         'bottle', 'bus', 'car', 'cat', 'chair',
-                         'cow', 'diningtable', 'dog', 'horse',
-                         'motorbike', 'person', 'pottedplant',
-                         'sheep', 'sofa', 'train', 'tvmonitor')
+        self._classes = ('boat', 'buoy', 'person', 'bird', 'other')
         self._class_to_ind = dict(zip(self.classes, range(self.num_classes)))
         self._image_ext = '.JPG'
 
