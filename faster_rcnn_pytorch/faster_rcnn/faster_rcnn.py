@@ -32,7 +32,7 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
 class RPN(nn.Module):
     _feat_stride = [16, ]
     anchor_scales = [8, 16, 32]
-    PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
+    PIXEL_MEANS = np.array([[[128.6997,140.0108,151.1108]]])
     SCALES = (600,)
     MAX_SIZE = 1000
 
@@ -225,7 +225,7 @@ class FasterRCNN(nn.Module):
                        'cow', 'diningtable', 'dog', 'horse',
                        'motorbike', 'person', 'pottedplant',
                        'sheep', 'sofa', 'train', 'tvmonitor'])
-    PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
+    PIXEL_MEANS = np.array([[[128.6997,140.0108,151.1108]]])
     SCALES = (600,)
     MAX_SIZE = 1000
 
