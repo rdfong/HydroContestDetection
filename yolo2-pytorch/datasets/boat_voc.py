@@ -83,7 +83,7 @@ class BoatDataset(ImageDataset):
 
         boxes = np.zeros((num_objs, 4), dtype=np.uint16)
         gt_classes = np.zeros((num_objs), dtype=np.int32)
-        overlaps = np.zeros((num_objs), dtype=np.float32)
+        overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
         # "Seg" area for pascal is just the box area
         seg_areas = np.zeros((num_objs), dtype=np.float32)
         ishards = np.zeros((num_objs), dtype=np.int32)
@@ -101,10 +101,10 @@ class BoatDataset(ImageDataset):
             difficult = 0 if diffc == None else int(diffc.text)
             ishards[ix] = difficult
 
-            cls = 0#self._class_to_ind[obj.find('name').text.lower().strip()]
+            cls = self._class_to_ind[obj.find('name').text.lower().strip()]
             boxes[ix, :] = [x1, y1, x2, y2]
             gt_classes[ix] = cls
-            overlaps[ix] = 1.0
+            overlaps[ix,cls] = 1.0
             seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
 
         overlaps = scipy.sparse.csr_matrix(overlaps)

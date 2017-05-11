@@ -32,7 +32,7 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
 class RPN(nn.Module):
     _feat_stride = [16, ]
     anchor_scales = [8, 16, 32]
-    PIXEL_MEANS = np.array([[[128.6997,140.0108,151.1108]]])
+    PIXEL_MEANS = np.array([[[151.110,140.0108,128.6997]]])
     SCALES = (600,)
     MAX_SIZE = 1000
 
@@ -56,30 +56,31 @@ class RPN(nn.Module):
         im_data = network.np_to_variable(im_data, is_cuda=True)
         im_data = im_data.permute(0, 3, 1, 2)
         features = self.features(im_data)
-
+        print im_data
         rpn_conv1 = self.conv1(features)
-
+        
         # rpn score
         rpn_cls_score = self.score_conv(rpn_conv1)
         rpn_cls_score_reshape = self.reshape_layer(rpn_cls_score, 2)
         rpn_cls_prob = F.softmax(rpn_cls_score_reshape)
         rpn_cls_prob_reshape = self.reshape_layer(rpn_cls_prob, len(self.anchor_scales)*3*2)
-
+        
         # rpn boxes
         rpn_bbox_pred = self.bbox_conv(rpn_conv1)
-
+       
         # proposal layer
         cfg_key = 'TRAIN' if self.training else 'TEST'
         rois = self.proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info,
                                    cfg_key, self._feat_stride, self.anchor_scales)
         scores = rpn_cls_score_reshape
-        # generating training labels and build the rpn loss
+        print rois
+       # generating training labels and build the rpn loss
         if self.training:
             assert gt_boxes is not None
             rpn_data = self.anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas,
                                                 im_info, self._feat_stride, self.anchor_scales)
             self.cross_entropy, self.loss_box = self.build_loss(rpn_cls_score_reshape, rpn_bbox_pred, rpn_data)
-
+        
         return features, rois
 
     def build_loss(self, rpn_cls_score_reshape, rpn_bbox_pred, rpn_data):

@@ -134,32 +134,40 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_i
     # label: 1 is positive, 0 is negative, -1 is dont care
     # (A)
     labels = np.empty((len(inds_inside),), dtype=np.float32)
-    labels.fill(-1)
-
+    labels.fill(0)
+    bbox_targets = np.zeros((len(inds_inside), 4), dtype=np.float32)
+    
     # overlaps between the anchors and the gt boxes
     # overlaps (ex, gt), shape is A x G
-    overlaps = bbox_overlaps(
-        np.ascontiguousarray(anchors, dtype=np.float),
-        np.ascontiguousarray(gt_boxes, dtype=np.float))
-    argmax_overlaps = overlaps.argmax(axis=1)  # (A)
-    max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
-    gt_argmax_overlaps = overlaps.argmax(axis=0)  # G
-    gt_max_overlaps = overlaps[gt_argmax_overlaps,
-                               np.arange(overlaps.shape[1])]
-    gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
+    if (len(gt_boxes) > 0):
+        # overlaps between the anchors and the gt boxes
+        # overlaps (ex, gt), shape is A x G
+        overlaps = bbox_overlaps(
+            np.ascontiguousarray(anchors, dtype=np.float),
+            np.ascontiguousarray(gt_boxes, dtype=np.float))
+        argmax_overlaps = overlaps.argmax(axis=1)  # (A)
+        max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
+        gt_argmax_overlaps = overlaps.argmax(axis=0)  # G
+        gt_max_overlaps = overlaps[gt_argmax_overlaps,
+                                   np.arange(overlaps.shape[1])]
+        gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
 
-    if not cfg.TRAIN.RPN_CLOBBER_POSITIVES:
-        # assign bg labels first so that positive labels can clobber them
-        labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
+        if not cfg.TRAIN.RPN_CLOBBER_POSITIVES:
+            # assign bg labels first so that positive labels can clobber them
+            labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
 
-    # fg label: for each gt, anchor with highest overlap
-    labels[gt_argmax_overlaps] = 1
-    # fg label: above threshold IOU
-    labels[max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
+        # fg label: for each gt, anchor with highest overlap
+        labels[gt_argmax_overlaps] = 1
+        # fg label: above threshold IOU
+        labels[max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
 
-    if cfg.TRAIN.RPN_CLOBBER_POSITIVES:
-        # assign bg labels last so that negative labels can clobber positives
-        labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
+
+        if cfg.TRAIN.RPN_CLOBBER_POSITIVES:
+            # assign bg labels last so that negative labels can clobber positives
+            labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
+
+        # bbox_targets = np.zeros((len(inds_inside), 4), dtype=np.float32)
+        bbox_targets = _compute_targets(anchors, gt_boxes[argmax_overlaps, :])
 
     # preclude dontcare areas
     if dontcare_areas is not None and dontcare_areas.shape[0] > 0:
@@ -191,7 +199,7 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_i
     fg_inds = np.where(labels == 1)[0]
     if len(fg_inds) > num_fg:
         disable_inds = npr.choice(
-            fg_inds, size=(len(fg_inds) - num_fg), replace=False)
+           fg_inds, size=(len(fg_inds) - num_fg), replace=False)
         labels[disable_inds] = -1
 
     # subsample negative labels if we have too many
@@ -203,9 +211,6 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_i
         labels[disable_inds] = -1
         # print "was %s inds, disabling %s, now %s inds" % (
         # len(bg_inds), len(disable_inds), np.sum(labels == 0))
-
-    # bbox_targets = np.zeros((len(inds_inside), 4), dtype=np.float32)
-    bbox_targets = _compute_targets(anchors, gt_boxes[argmax_overlaps, :])
 
     bbox_inside_weights = np.zeros((len(inds_inside), 4), dtype=np.float32)
     bbox_inside_weights[labels == 1, :] = np.array(cfg.TRAIN.RPN_BBOX_INSIDE_WEIGHTS)
@@ -281,7 +286,7 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, gt_ishard, dontcare_areas, im_i
     # assert bbox_outside_weights.shape[3] == width
 
     rpn_bbox_outside_weights = bbox_outside_weights
-
+    
     return rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights
 
 
