@@ -4,6 +4,7 @@
 **/*.h5
 **/*.npy
 **/*.pyc
+**/*.swp
 **/*.swo
 builds
 HydroTestSuite/proposals/*
