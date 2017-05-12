@@ -56,7 +56,7 @@ class RPN(nn.Module):
         im_data = network.np_to_variable(im_data, is_cuda=True)
         im_data = im_data.permute(0, 3, 1, 2)
         features = self.features(im_data)
-        print im_data
+        
         rpn_conv1 = self.conv1(features)
         
         # rpn score
@@ -73,7 +73,7 @@ class RPN(nn.Module):
         rois = self.proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info,
                                    cfg_key, self._feat_stride, self.anchor_scales)
         scores = rpn_cls_score_reshape
-        print rois
+        
        # generating training labels and build the rpn loss
         if self.training:
             assert gt_boxes is not None
