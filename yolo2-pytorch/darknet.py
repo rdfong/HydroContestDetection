@@ -69,59 +69,62 @@ def _process_batch(data):
     gt_boxes_b = np.asarray(gt_boxes, dtype=np.float)
 
     # for each cell
-    bbox_np_b = np.reshape(bbox_np, [-1, 4])
-    ious = bbox_ious(
-        np.ascontiguousarray(bbox_np_b, dtype=np.float),
-        np.ascontiguousarray(gt_boxes_b, dtype=np.float)
-    )
-    best_ious = np.max(ious, axis=1).reshape(_iou_mask.shape)
-    _iou_mask[best_ious <= cfg.iou_thresh] = cfg.noobject_scale
+    
+    if (len(gt_boxes_b) > 0):
+        bbox_np_b = np.reshape(bbox_np, [-1, 4])
+        ious = bbox_ious(
+            np.ascontiguousarray(bbox_np_b, dtype=np.float),
+            np.ascontiguousarray(gt_boxes_b, dtype=np.float)
+        )
+        best_ious = np.max(ious, axis=1).reshape(_iou_mask.shape)
+        _iou_mask[best_ious <= cfg.iou_thresh] = cfg.noobject_scale
 
-    # locate the cell of each gt_boxe
-    cell_w = float(inp_size[0]) / W
-    cell_h = float(inp_size[1]) / H
-    cx = (gt_boxes_b[:, 0] + gt_boxes_b[:, 2]) * 0.5 / cell_w
-    cy = (gt_boxes_b[:, 1] + gt_boxes_b[:, 3]) * 0.5 / cell_h
-    cell_inds = np.floor(cy) * W + np.floor(cx)
-    cell_inds = cell_inds.astype(np.int)
+        # locate the cell of each gt_boxe
+        cell_w = float(inp_size[0]) / W
+        cell_h = float(inp_size[1]) / H
+        cx = (gt_boxes_b[:, 0] + gt_boxes_b[:, 2]) * 0.5 / cell_w
+        cy = (gt_boxes_b[:, 1] + gt_boxes_b[:, 3]) * 0.5 / cell_h
+        cell_inds = np.floor(cy) * W + np.floor(cx)
+        cell_inds = cell_inds.astype(np.int)
 
-    target_boxes = np.empty(gt_boxes_b.shape, dtype=np.float)
-    target_boxes[:, 0] = cx - np.floor(cx)  # cx
-    target_boxes[:, 1] = cy - np.floor(cy)  # cy
-    target_boxes[:, 2] = (gt_boxes_b[:, 2] - gt_boxes_b[:, 0]) / inp_size[0] * out_size[0]  # tw
-    target_boxes[:, 3] = (gt_boxes_b[:, 3] - gt_boxes_b[:, 1]) / inp_size[1] * out_size[1]  # th
+        target_boxes = np.empty(gt_boxes_b.shape, dtype=np.float)
+        target_boxes[:, 0] = cx - np.floor(cx)  # cx
+        target_boxes[:, 1] = cy - np.floor(cy)  # cy
+        target_boxes[:, 2] = (gt_boxes_b[:, 2] - gt_boxes_b[:, 0]) / inp_size[0] * out_size[0]  # tw
+        target_boxes[:, 3] = (gt_boxes_b[:, 3] - gt_boxes_b[:, 1]) / inp_size[1] * out_size[1]  # th
 
-    # for each gt boxes, match the best anchor
-    gt_boxes_resize = np.copy(gt_boxes_b)
-    gt_boxes_resize[:, 0::2] *= (out_size[0] / float(inp_size[0]))
-    gt_boxes_resize[:, 1::2] *= (out_size[1] / float(inp_size[1]))
-    anchor_ious = anchor_intersections(
-        anchors,
-        np.ascontiguousarray(gt_boxes_resize, dtype=np.float)
-    )
-    anchor_inds = np.argmax(anchor_ious, axis=0)
-    ious_reshaped = np.reshape(ious, [hw, num_anchors, len(cell_inds)])
-    for i, cell_ind in enumerate(cell_inds):
-        if cell_ind >= hw or cell_ind < 0:
-            print cell_ind
-            continue
-        a = anchor_inds[i]
+        # for each gt boxes, match the best anchor
+        gt_boxes_resize = np.copy(gt_boxes_b)
+        gt_boxes_resize[:, 0::2] *= (out_size[0] / float(inp_size[0]))
+        gt_boxes_resize[:, 1::2] *= (out_size[1] / float(inp_size[1]))
+        anchor_ious = anchor_intersections(
+            anchors,
+            np.ascontiguousarray(gt_boxes_resize, dtype=np.float)
+        )
+        anchor_inds = np.argmax(anchor_ious, axis=0)
+        ious_reshaped = np.reshape(ious, [hw, num_anchors, len(cell_inds)])
+    
+        for i, cell_ind in enumerate(cell_inds):
+            if cell_ind >= hw or cell_ind < 0:
+                print cell_ind
+                continue
+            a = anchor_inds[i]
 
-        # do not evaluate for dontcare
-        if gt_classes[i] == -1:
-            # print(-1)
-            continue
+            # do not evaluate for dontcare
+            if gt_classes[i] == -1:
+                # print(-1)
+                continue
 
-        _iou_mask[cell_ind, a, :] = cfg.object_scale
-        #_ious[cell_ind, a, :] = anchor_ious[a, i]
-        _ious[cell_ind, a, :] = ious_reshaped[cell_ind, a, i]
+            _iou_mask[cell_ind, a, :] = cfg.object_scale
+            #_ious[cell_ind, a, :] = anchor_ious[a, i]
+            _ious[cell_ind, a, :] = ious_reshaped[cell_ind, a, i]
 
-        _box_mask[cell_ind, a, :] = cfg.coord_scale
-        target_boxes[i, 2:4] /= anchors[a]
-        _boxes[cell_ind, a, :] = target_boxes[i]
+            _box_mask[cell_ind, a, :] = cfg.coord_scale
+            target_boxes[i, 2:4] /= anchors[a]
+            _boxes[cell_ind, a, :] = target_boxes[i]
 
-        _class_mask[cell_ind, a, :] = cfg.class_scale
-        _classes[cell_ind, a, gt_classes[i]] = 1.
+            _class_mask[cell_ind, a, :] = cfg.class_scale
+            _classes[cell_ind, a, gt_classes[i]] = 1.
 
     _boxes[:, :, 2:4] = np.maximum(_boxes[:, :, 2:4], 0.001)
     _boxes[:, :, 2:4] = np.log(_boxes[:, :, 2:4])
@@ -218,7 +221,7 @@ class Darknet19(nn.Module):
             iou_mask = net_utils.np_to_variable(_iou_mask, dtype=torch.FloatTensor)
             class_mask = net_utils.np_to_variable(_class_mask, dtype=torch.FloatTensor)
 
-            num_boxes = sum((len(boxes) for boxes in gt_boxes))
+            num_boxes = max(sum((len(boxes) for boxes in gt_boxes)), 1)
 
             # _boxes[:, :, :, 2:4] = torch.log(_boxes[:, :, :, 2:4])
             box_mask = box_mask.expand_as(_boxes)
