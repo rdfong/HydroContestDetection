@@ -171,7 +171,7 @@ for step in range(start_step, end_step+1):
             exp.add_scalar_dict(losses, step=step)
 
     if (step % 10000 == 0) and step > 0:
-        save_name = os.path.join(output_dir, 'faster_rcnn_{}.h5'.format(step))
+        save_name = os.path.join(output_dir, 'faster_rcnn_{}_{}.h5'.format(step,imdb_name))
         network.save_net(save_name, net)
         print('save model: {}'.format(save_name))
     if step in lr_decay_steps:

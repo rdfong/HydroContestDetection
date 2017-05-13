@@ -8,6 +8,7 @@ from torch.multiprocessing import Pool
 from darknet import Darknet19
 
 from datasets.pascal_voc import VOCDataset
+from datasets.boat_voc import BoatDataset
 import utils.yolo as yolo_utils
 import utils.network as net_utils
 from utils.timer import Timer
@@ -19,14 +20,14 @@ except ImportError:
     CrayonClient = None
 
 
-imbd_name = sys.argv[1]
+imdb_name = sys.argv[1]
 meta = imdb_name.split('_')
 imdb = None
 if meta[1] == 'boat':
-    imdb = BoatDataset(imbd_name, cfg.DATA_DIR, cfg.train_batch_size,
+    imdb = BoatDataset(imdb_name, cfg.DATA_DIR, cfg.train_batch_size,
                   yolo_utils.preprocess_train, processes=2, shuffle=True, dst_size=cfg.inp_size)
 else:
-    imdb = VOCDataset(imbd_name, cfg.DATA_DIR, cfg.train_batch_size,
+    imdb = VOCDataset(imdb_name, cfg.DATA_DIR, cfg.train_batch_size,
                   yolo_utils.preprocess_train, processes=2, shuffle=True, dst_size=cfg.inp_size)
 print('load data succ...')
 
@@ -37,8 +38,8 @@ pretrained_model = cfg.trained_model
 
 net_utils.weights_normal_init(net, dev=0.01)
 #TODO: This will break with new classes, need to selectively load
-net_utils.load_net(pretrained_model, net)
-#net.load_from_npz(cfg.pretrained_model, num_conv=18)
+#net_utils.load_net(pretrained_model, net)
+net.load_from_npz(cfg.pretrained_model, num_conv=18)
 net.cuda()
 net.train()
 print('load net succ...')
@@ -124,11 +125,9 @@ for step in range(start_epoch * imdb.batch_per_epoch, cfg.max_epoch * imdb.batch
             lr *= cfg.lr_decay
             optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=cfg.momentum, weight_decay=cfg.weight_decay)
 
-        save_name = os.path.join(cfg.train_output_dir, '{}_{}.h5'.format(cfg.exp_name, imdb.epoch))
-        net_utils.save_net(save_name, net)
         save_model_count += 1
         if save_model_count % 10 == 0:
-            save_name = os.path.join(cfg.train_output_dir, '{}_{}.h5'.format(cfg.exp_name, step/imdb.batch_per_epoch))
+            save_name = os.path.join(cfg.train_output_dir, '{}_{}.h5'.format(imdb_name, step))
             net_utils.save_net(save_name, net)
             print('save model: {}'.format(save_name))
 

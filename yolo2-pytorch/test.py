@@ -25,8 +25,8 @@ def preprocess(fname):
 # hyper-parameters
 # ------------
 imdb_test = sys.argv[1]
-trained_model = cfg.trained_model
-#trained_model = os.path.join(cfg.train_output_dir, 'darknet19_voc07trainval_exp1_100.h5')
+#trained_model = cfg.trained_model
+trained_model = os.path.join(cfg.train_output_dir, 'stub.h5')
 output_dir = cfg.test_output_dir
 
 max_per_image = 300
