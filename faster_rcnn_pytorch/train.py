@@ -43,10 +43,6 @@ cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
 pretrained_model = 'data/pretrained_model/VGG_imagenet.npy'
 output_dir = 'models/saved_model3'
 
-start_step = 0
-end_step = 100000
-lr_decay_steps = {60000, 80000}
-lr_decay = 1./10
 
 rand_seed = 1024
 _DEBUG = True
@@ -71,6 +67,13 @@ imdb = get_imdb(imdb_name)
 rdl_roidb.prepare_roidb(imdb)
 roidb = imdb.roidb
 data_layer = RoIDataLayer(roidb, imdb.num_classes)
+
+epochs = 100
+num_images = imdb.num_images
+start_step = 0
+end_step = epochs*num_images
+lr_decay_steps = {int(6.0/10.0*end_step), int(8.0/10.0*end_step)}
+lr_decay = 1./10
 
 # load net
 net = FasterRCNN(classes=imdb.classes, debug=_DEBUG)
@@ -170,7 +173,7 @@ for step in range(start_step, end_step+1):
                       'rcnn_box': float(net.loss_box.data.cpu().numpy()[0])}
             exp.add_scalar_dict(losses, step=step)
 
-    if (step % 10000 == 0) and step > 0:
+    if (step % 1000 == 0 or step == end_step) and step > 0:
         save_name = os.path.join(output_dir, 'faster_rcnn_{}_{}.h5'.format(step,imdb_name))
         network.save_net(save_name, net)
         print('save model: {}'.format(save_name))
