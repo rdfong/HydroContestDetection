@@ -46,11 +46,11 @@ class ImageDataset(object):
                 images, gt_boxes, classes, dontcare, origin_im = self.gen.next()
                 batch['images'].append(images)
                 batch['gt_boxes'].append(gt_boxes)
-                #batch['gt_classes'].append(classes)
+                batch['gt_classes'].append(classes)
                 batch['dontcare'].append(dontcare)
                 batch['origin_im'].append(origin_im)
                 i += 1
-            except (StopIteration, AttributeError):
+            except (StopIteration,AttributeError):
                 indexes = np.arange(len(self.image_names), dtype=np.int)
                 if self._shuffle:
                     np.random.shuffle(indexes)
@@ -60,7 +60,7 @@ class ImageDataset(object):
                 self._epoch += 1
                 print('epoch {} start...'.format(self._epoch))
         batch['images'] = np.asarray(batch['images'])
-
+        
         return batch
 
     def close(self):

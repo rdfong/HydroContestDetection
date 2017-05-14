@@ -73,10 +73,23 @@ cnt = 0
 t = Timer()
 save_model_count = 0
 
-for step in range(start_epoch * imdb.batch_per_epoch, cfg.max_epoch * imdb.batch_per_epoch):
+old_epoch = imdb.epoch
+step = 0
+while imdb.epoch < cfg.max_epoch:
     t.tic()
     # batch
     batch = imdb.next_batch()
+    #if epoch has advanced then save the current network before we do anything else
+    #also update the optimizer if necessary
+    if old_epoch > 0 and (imdb.epoch > old_epoch):
+        if imdb.epoch in cfg.lr_decay_epochs:
+            lr *= cfg.lr_decay
+            optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=cfg.momentum, weight_decay=cfg.weight_decay)    
+        if imdb.epoch % 10 == 0:
+            save_name = os.path.join(cfg.train_output_dir, '{}_{}.h5'.format(imdb_name, imdb.epoch))
+            net_utils.save_net(save_name, net)
+            print('save model: {}'.format(save_name))
+
     im = batch['images']
     gt_boxes = batch['gt_boxes']
     gt_classes = batch['gt_classes']
@@ -99,14 +112,13 @@ for step in range(start_epoch * imdb.batch_per_epoch, cfg.max_epoch * imdb.batch
     cnt += 1
 
     duration = t.toc()
-    if step % cfg.disp_interval == 0:
+    if step % 1 == 0:
         train_loss /= cnt
         bbox_loss /= cnt
         iou_loss /= cnt
         cls_loss /= cnt
         print('epoch: %d, step: %d, loss: %.3f, bbox_loss: %.3f, iou_loss: %.3f, cls_loss: %.3f (%.2f s/batch)' % (
-            step/imdb.batch_per_epoch, step, train_loss, bbox_loss, iou_loss, cls_loss, duration))
-        sys.stdout.flush()
+            imdb.epoch, step, train_loss, bbox_loss, iou_loss, cls_loss, duration))
         
         if use_tensorboard and step % cfg.log_interval == 0:
             exp.add_scalar_value('loss_train', train_loss, step=step)
@@ -119,17 +131,6 @@ for step in range(start_epoch * imdb.batch_per_epoch, cfg.max_epoch * imdb.batch
         bbox_loss, iou_loss, cls_loss = 0., 0., 0.
         cnt = 0
         t.clear()
-
-    if step > 0 and (step % imdb.batch_per_epoch == 0):
-        if imdb.epoch in cfg.lr_decay_epochs:
-            lr *= cfg.lr_decay
-            optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=cfg.momentum, weight_decay=cfg.weight_decay)
-
-        save_model_count += 1
-        if save_model_count % 10 == 0:
-            save_name = os.path.join(cfg.train_output_dir, '{}_{}.h5'.format(imdb_name, step))
-            net_utils.save_net(save_name, net)
-            print('save model: {}'.format(save_name))
-
-
+    step += 1
+    old_epoch = imdb.epoch
 imdb.close()
