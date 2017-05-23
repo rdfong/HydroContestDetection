@@ -36,7 +36,6 @@ class RoIDataLayer(object):
 
     def _get_next_minibatch_inds(self):
         """Return the roidb indices for the next minibatch."""
-        
         if cfg.TRAIN.HAS_RPN:
             if self._cur + cfg.TRAIN.IMS_PER_BATCH >= len(self._roidb):
                 self._shuffle_roidb_inds()

@@ -21,13 +21,13 @@ imdb_name = sys.argv[1]
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
 #trained_model = 'models/VGGnet_fast_rcnn_iter_70000.h5'
 #trained_model = 'models/training/darknet19_voc07trainval_exp1/darknet19_voc07trainval_exp1_1.h5'
-trained_model = 'models/saved_model3/stub.h5'
+trained_model = 'models/saved_model3/faster_rcnn_74_voc_boat_train1.h5'
 
 rand_seed = 1024
 
 save_name = 'faster_rcnn_100000'
 max_per_image = 300
-thresh = 0.05
+thresh = 0.01
 vis = False
 test_boats = True
 # ------------

@@ -145,8 +145,8 @@ for step in range(start_step, end_step+1):
     loss.backward()
     network.clip_gradient(net, 10.)
     optimizer.step()
-
-    if step % disp_interval == 0:
+    
+    if step % 5 == 0:
         duration = t.toc(average=False)
         fps = step_cnt / duration
 
@@ -173,9 +173,9 @@ for step in range(start_step, end_step+1):
                       'rcnn_cls': float(net.cross_entropy.data.cpu().numpy()[0]),
                       'rcnn_box': float(net.loss_box.data.cpu().numpy()[0])}
             exp.add_scalar_dict(losses, step=step)
-
-    if (data_layer.epoch > cur_epoch and data_layer.epoch%10 == 0) and step > 0):
-        save_name = os.path.join(output_dir, 'faster_rcnn_{}_{}.h5'.format(step,imdb_name))
+    
+    if (data_layer.epoch > cur_epoch and data_layer.epoch%10 == 0 and step > 0):
+        save_name = os.path.join(output_dir, 'faster_rcnn_{}_{}.h5'.format(data_layer.epoch, imdb_name))
         network.save_net(save_name, net)
         print('save model: {}'.format(save_name))
     if (data_layer.epoch > cur_epoch):
