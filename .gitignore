@@ -11,6 +11,7 @@
 builds
 faster_rcnn_pytorch/FasterRCNN_boat_results
 yolo2-pytorch/YOLO_boat_results
+yolo2-pytorch/YOLO_V2_results
 HydroTestSuite/proposals/*
 HydroTestSuite/MST
 HydroTestSuite/.DS_Store

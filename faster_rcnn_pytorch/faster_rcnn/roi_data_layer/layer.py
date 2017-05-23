@@ -26,6 +26,7 @@ class RoIDataLayer(object):
         self._roidb = roidb
         self._num_classes = num_classes
         self._shuffle_roidb_inds()
+        self.epoch = 0
 
     def _shuffle_roidb_inds(self):
         """Randomly permute the training roidb."""
@@ -39,6 +40,7 @@ class RoIDataLayer(object):
         if cfg.TRAIN.HAS_RPN:
             if self._cur + cfg.TRAIN.IMS_PER_BATCH >= len(self._roidb):
                 self._shuffle_roidb_inds()
+                self.epoch += 1
 
             db_inds = self._perm[self._cur:self._cur + cfg.TRAIN.IMS_PER_BATCH]
             self._cur += cfg.TRAIN.IMS_PER_BATCH
@@ -56,6 +58,7 @@ class RoIDataLayer(object):
                 self._cur += 1
                 if self._cur >= len(self._roidb):
                     self._shuffle_roidb_inds()
+                    self.epoch += 1
 
         return db_inds
 

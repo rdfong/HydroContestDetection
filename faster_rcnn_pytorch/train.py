@@ -68,10 +68,10 @@ rdl_roidb.prepare_roidb(imdb)
 roidb = imdb.roidb
 data_layer = RoIDataLayer(roidb, imdb.num_classes)
 
-epochs = 100
+epochs = 160
 num_images = imdb.num_images
 start_step = 0
-end_step = epochs*num_images
+end_step = epochs*num_images/cfg.TRAIN.IMS_PER_BATCH
 lr_decay_steps = {int(6.0/10.0*end_step), int(8.0/10.0*end_step)}
 lr_decay = 1./10
 
@@ -116,6 +116,7 @@ step_cnt = 0
 re_cnt = False
 t = Timer()
 t.tic()
+cur_epoch = data_layer.epoch
 for step in range(start_step, end_step+1):
 
     # get one batch
@@ -173,10 +174,12 @@ for step in range(start_step, end_step+1):
                       'rcnn_box': float(net.loss_box.data.cpu().numpy()[0])}
             exp.add_scalar_dict(losses, step=step)
 
-    if (step % 1000 == 0 or step == end_step) and step > 0:
+    if (data_layer.epoch > cur_epoch and data_layer.epoch%10 == 0) and step > 0):
         save_name = os.path.join(output_dir, 'faster_rcnn_{}_{}.h5'.format(step,imdb_name))
         network.save_net(save_name, net)
         print('save model: {}'.format(save_name))
+    if (data_layer.epoch > cur_epoch):
+        cur_epoch = data_layer.epoch
     if step in lr_decay_steps:
         lr *= lr_decay
         optimizer = torch.optim.SGD(params[8:], lr=lr, momentum=momentum, weight_decay=weight_decay)

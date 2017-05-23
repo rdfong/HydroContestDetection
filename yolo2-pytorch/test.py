@@ -26,11 +26,11 @@ def preprocess(fname):
 # ------------
 imdb_test = sys.argv[1]
 #trained_model = cfg.trained_model
-trained_model = os.path.join(cfg.train_output_dir, 'stub.h5')
+trained_model = os.path.join(cfg.train_output_dir, 'voc_2007_trainval_120.h5')
 output_dir = cfg.test_output_dir
 
 max_per_image = 300
-thresh = 0.001
+thresh = 0.01
 vis = False
 test_boats = True
 # ------------
