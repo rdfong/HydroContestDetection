@@ -25,8 +25,10 @@ def preprocess(fname):
 # hyper-parameters
 # ------------
 imdb_test = sys.argv[1]
+test_model = sys.argv[2]
+output_file = sys.argv[3]
 #trained_model = cfg.trained_model
-trained_model = os.path.join(cfg.train_output_dir, 'voc_2007_trainval_120.h5')
+trained_model = os.path.join(cfg.train_output_dir, test_model+'.h5')
 output_dir = cfg.test_output_dir
 
 max_per_image = 300
@@ -84,8 +86,8 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
         if test_boats:
             path = imdb.image_path_at(i)
             pathArray = path.split('/')
-            f = open('../HydroTestSuite/proposals/' + pathArray[len(pathArray)-1]+'.txt', 'w')
-            print '../HydroTestSuite/proposals/' + pathArray[len(pathArray)-1]
+            f = open('../HydroTestSuite/proposals/yolo/' + pathArray[len(pathArray)-1]+'.txt', 'w')
+            print '../HydroTestSuite/proposals/yolo/' + pathArray[len(pathArray)-1]
             # Write to boat detection format
             for d in range(len(all_boxes[i])):
                 f.write('obstacle\n')
@@ -114,7 +116,11 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
         cPickle.dump(all_boxes, f, cPickle.HIGHEST_PROTOCOL)
 
     print 'Evaluating detections'
-    imdb.evaluate_detections(all_boxes, output_dir)
+    ap = imdb.evaluate_detections(all_boxes, output_dir)
+
+    if output_file != '':
+        file = open(output_file, 'a+')
+        file.write(str(ap)+',')
 
 
 if __name__ == '__main__':

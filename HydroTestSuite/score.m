@@ -174,5 +174,11 @@ message = sprintf('\n\nMBO: %f\nTotal Recall: %f\nTotal Precision: %f\nTotal FSc
     mean(mboResults), mean(recallResults), mean(precisionResults), mean(fscoreResults), (mean(mboResults)+mean(fscoreResults))/2);
 fprintf(outID, message);
 fclose(outID);
-%Write score to file (saveas dialog)
-%show indivual scores for each file and a total final score
+
+if exist('output_file')
+   message = sprintf('%f,%f,%f.%f\n', ...
+   mean(fscoreResults), mean(mboResults), mean(recallResults), mean(precisionResults));
+   scoreID = fopen(output_file, 'a+');
+   fprintf(scoreID, message);
+   fclose(scoreID);
+end

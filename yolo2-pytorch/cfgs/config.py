@@ -1,6 +1,6 @@
 import os
 from config_voc import *
-from exps.darknet19_exp1 import *
+from exps.darknet19_exp_boat import *
 
 
 def mkdir(path, max_depth=3):

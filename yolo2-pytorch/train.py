@@ -32,15 +32,15 @@ else:
 print('load data succ...')
 
 net = Darknet19()
-# net_utils.load_net(cfg.trained_model, net)
-pretrained_model = os.path.join(cfg.train_output_dir, 'voc_2007_trainval_70.h5')
-net_utils.load_net(pretrained_model, net)
+#net_utils.load_net(cfg.trained_model, net)
+#pretrained_model = os.path.join(cfg.train_output_dir, 'voc_boat_trainval_70.h5')
+#net_utils.load_net(pretrained_model, net)
 #pretrained_model = cfg.trained_model
 
 #net_utils.weights_normal_init(net, dev=0.01)
 #TODO: This will break with new classes, need to selectively load
 #net_utils.load_net(pretrained_model, net)
-#net.load_from_npz(cfg.pretrained_model, num_conv=18)
+net.load_from_npz(cfg.pretrained_model, num_conv=18)
 net.cuda()
 net.train()
 print('load net succ...')

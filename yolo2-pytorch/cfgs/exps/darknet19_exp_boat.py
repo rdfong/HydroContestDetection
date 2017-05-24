@@ -1,4 +1,4 @@
-exp_name = 'darknet19_voc12trainval_exp1'
+exp_name = 'yolo_boat_models'
 
 pretrained_fname = 'pretrained_models/darknet19.weights.npz'
 
@@ -20,7 +20,5 @@ coord_scale = 1.
 iou_thresh = 0.5
 
 # dataset
-imdb_train = 'voc_boat_train1'
-imdb_test = 'voc_boat_val1'
 batch_size = 1
 train_batch_size = 16

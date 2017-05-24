@@ -45,7 +45,7 @@ output_dir = 'models/saved_model3'
 
 
 rand_seed = 1024
-_DEBUG = True
+_DEBUG = False
 use_tensorboard = True
 remove_all_log = False   # remove all historical experiments in TensorBoard
 exp_name = None # the previous experiment name in TensorBoard
@@ -175,7 +175,7 @@ for step in range(start_step, end_step+1):
             exp.add_scalar_dict(losses, step=step)
     
     if (data_layer.epoch > cur_epoch and data_layer.epoch%10 == 0 and step > 0):
-        save_name = os.path.join(output_dir, 'faster_rcnn_{}_{}.h5'.format(data_layer.epoch, imdb_name))
+        save_name = os.path.join(output_dir, '{}_{}.h5'.format(imdb_name, data_layer.epoch))
         network.save_net(save_name, net)
         print('save model: {}'.format(save_name))
     if (data_layer.epoch > cur_epoch):

@@ -1,8 +1,22 @@
 close all;
-image_indices =  {'03'; '15'; '21'; '57'; '65'; '68'; '99'; '79'; '42'; '63'; '107'; '115'; '120'; '135'; '145'};
+p_dir = ''
+if strcmp(method,'YOLO')
+    p_dir = './proposals/yolo/images/';
+elseif strcmp(method, 'RCNN')
+    p_dir = './proposals/rcnn/images/';
+end
+
+if strcmp(display,'NO')
+    display = 0
+end
+
+image_indices =  {'00';'03';'06';'09';'12';'15';'18';...
+'21';'24';'27';'30';'33';'36';'39';'42';'45';'48';'51';'54';...
+'57';'60';'63';'66';'69';'72';'75';'78';'81';'84';'87';'90';...
+'93';'96';'99';'102';'105';'108';'111';'114';'117';'120';...
+'123';'126';'129';'132';'135';'138';'141';'144';'147'};
 confidence = 0.05;
 
-p_dir = './proposals/';
 im_dir = './images/';
 
 for i=1:length(image_indices)
@@ -12,7 +26,11 @@ for i=1:length(image_indices)
     p_file = strcat(p_dir,image_indices(i),'.JPG.txt');
     fileID = fopen(p_file{1}, 'r');
     %now read class, confidence and box
-    figure, imshow(im);
+    h = figure;
+    if (display == 0)
+        set(h, 'Visible', 'off');
+    end
+    imshow(im);
     title(strcat(image_indices(i),'.JPG'), 'FontSize', 16)
     
     tline = fgetl(fileID);
@@ -32,7 +50,9 @@ for i=1:length(image_indices)
         
         tline = fgetl(fileID);
     end
-
+    if ~display
+       saveas(h, strcat(p_dir,image_indices(i),'.jpg'))
+    end
     fclose(fileID);
     pause(0.5);
 end

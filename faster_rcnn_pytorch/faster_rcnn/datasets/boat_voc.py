@@ -221,6 +221,7 @@ class boat_voc(imdb):
         with open(os.path.join(output_dir + '_pr.pkl'), 'w') as f:
             cPickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
         print('--------------------------------------------------------------')
+        return ap;
 
     def _do_matlab_eval(self, output_dir='output'):
         print '-----------------------------------------------------'
@@ -239,7 +240,7 @@ class boat_voc(imdb):
 
     def evaluate_detections(self, all_boxes, output_dir):
         self._write_voc_results_file(all_boxes)
-        self._do_python_eval(output_dir)
+        return self._do_python_eval(output_dir)
         #if self.config['matlab_eval']:
         #    self._do_matlab_eval(output_dir)
             #if self.config['cleanup']:
