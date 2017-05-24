@@ -1,3 +1,4 @@
+#Example: time python runExperiment.py 1 layerFixedExp YES NO
 import sys
 import numpy
 # argments:
