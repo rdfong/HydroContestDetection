@@ -20,5 +20,7 @@ coord_scale = 1.
 iou_thresh = 0.5
 
 # dataset
+imdb_train = 'voc_boat_train'
+imdb_test = 'voc_boat_test'
 batch_size = 1
 train_batch_size = 16
