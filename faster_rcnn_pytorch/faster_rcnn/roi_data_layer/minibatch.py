@@ -36,23 +36,24 @@ def get_minibatch(roidb, num_classes):
     blobs = {'data': im_blob}
 
     if cfg.TRAIN.HAS_RPN:
-        assert len(im_scales) == 1, "Single batch only"
-        assert len(roidb) == 1, "Single batch only"
+        #assert len(im_scales) == 1, "Single batch only"
+        #assert len(roidb) == 1, "Single batch only"
         # gt boxes: (x1, y1, x2, y2, cls)
-        gt_inds = np.where(roidb[0]['gt_classes'] != 0)[0]
-        gt_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
-        gt_boxes[:, 0:4] = roidb[0]['boxes'][gt_inds, :] * im_scales[0]
-        gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
-        blobs['gt_boxes'] = gt_boxes
-        blobs['gt_ishard'] = roidb[0]['gt_ishard'][gt_inds]  \
-            if 'gt_ishard' in roidb[0] else np.zeros(gt_inds.size, dtype=int)
-        # blobs['gt_ishard'] = roidb[0]['gt_ishard'][gt_inds]
-        blobs['dontcare_areas'] = roidb[0]['dontcare_areas'] * im_scales[0] \
-            if 'dontcare_areas' in roidb[0] else np.zeros([0, 4], dtype=float)
-        blobs['im_info'] = np.array(
-            [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
-            dtype=np.float32)
-        blobs['im_name'] = os.path.basename(roidb[0]['image'])
+        for i in range(cfg.TRAIN.IMS_PER_BATCH):
+            gti_inds = np.where(roidb[i]['gt_classes'] != 0)[0]
+            gti_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
+            gti_boxes[:, 0:4] = roidb[i]['boxes'][gt_inds, :] * im_scales[0]
+            gti_boxes[:, 4] = roidb[i]['gt_classes'][gt_inds]
+            blobs['gt_boxes'] = np.concatenate([blobs['gt_boxes'], gti_boxes])
+            blobs['gt_ishard'] = np.concatenate([blobs['gt_ishard'], roidb[i]['gt_ishard'][gti_inds]  \
+                if 'gt_ishard' in roidb[i] else np.zeros(gti_inds.size, dtype=int)])
+            # blobs['gt_ishard'] = roidb[0]['gt_ishard'][gt_inds]
+            blobs['dontcare_areas'] = np.concatenate([blobs['dontcare_areas'], roidb[i]['dontcare_areas'] * im_scales[0] \
+                if 'dontcare_areas' in roidb[i] else np.zeros([0, 4], dtype=float)])
+            blobs['im_info'] = np.concatenate([blobs['im_info'], np.array(
+                [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
+                dtype=np.float32)])
+            blobs['im_name'] = np.concatenate([blobs['im_name'], os.path.basename(roidb[i]['image'])])
 
     else: # not using RPN
         # Now, build the region of interest and label blobs
