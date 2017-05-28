@@ -1,13 +1,19 @@
 close all;
-p_dir = ''
-if strcmp(method,'YOLO')
-    p_dir = './proposals/yolo/images/';
-elseif strcmp(method, 'RCNN')
-    p_dir = './proposals/rcnn/images/';
+mpath = strrep(which(mfilename),[mfilename '.m'],'');
+p_dir = '';
+if exist('method')
+    if strcmp(method,'YOLO')
+        p_dir = [mpath,'proposals/yolo/'];
+    elseif strcmp(method, 'RCNN')
+        p_dir = [mpath,'proposals/rcnn/'];
+    end
 end
 
-if strcmp(display,'NO')
-    display = 0
+disp = 1;
+if exist('display')
+    if strcmp(display,'NO')
+        disp = 0;
+    end
 end
 
 image_indices =  {'00';'03';'06';'09';'12';'15';'18';...
@@ -17,7 +23,7 @@ image_indices =  {'00';'03';'06';'09';'12';'15';'18';...
 '123';'126';'129';'132';'135';'138';'141';'144';'147'};
 confidence = 0.05;
 
-im_dir = './images/';
+im_dir = [mpath,'images/'];
 
 for i=1:length(image_indices)
     imstr = strcat(im_dir,image_indices(i),'.JPG');
@@ -27,7 +33,7 @@ for i=1:length(image_indices)
     fileID = fopen(p_file{1}, 'r');
     %now read class, confidence and box
     h = figure;
-    if (display == 0)
+    if (disp == 0)
         set(h, 'Visible', 'off');
     end
     imshow(im);
@@ -43,16 +49,18 @@ for i=1:length(image_indices)
         tline = fgetl(fileID);
         if confProb >= confidence
             box = textscan(tline,'%d');
-            box = box{1}
+            box = box{1};
             hold on;
             rectangle('Position',[box(1),box(2),box(3),box(4)], 'EdgeColor', 'r', 'LineWidth', 2.0);
         end
         
         tline = fgetl(fileID);
     end
-    if ~display
-       saveas(h, strcat(p_dir,image_indices(i),'.jpg'))
+    if disp==0
+       saveas(h, char(strcat(p_dir,image_indices(i))),'jpg')
     end
     fclose(fileID);
-    pause(0.5);
+    if disp==1
+       pause(0.5);
+    end
 end

@@ -20,7 +20,7 @@ class ImageDataset(object):
         self._batch_size = batch_size
         self.dst_size = dst_size
 
-        self._epoch = -1
+        self._epoch = 0
         self._num_classes = 0
         self._classes = []
 

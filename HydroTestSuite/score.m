@@ -1,10 +1,20 @@
-input_proposal = './proposals/';
-input_annotation = './annotations/';
+mpath = strrep(which(mfilename),[mfilename '.m'],'');
+input_proposal = [mpath,'proposals/'];
+input_annotation = [mpath,'annotations/'];
 
-outID = fopen( strcat(datestr(datetime('now')),'results.txt'), 'wt' );
+if ~exist('output_file')
+    outID = fopen( strcat(datestr(datetime('now')),'results.txt'), 'wt' );
+end
+
+if exist('method')
+    if strcmp(method,'YOLO')
+        input_proposal = [mpath,'proposals/yolo/'];
+    elseif strcmp(method,'RCNN')
+        input_proposal = [mpath,'proposals/rcnn/'];
+    end
+end
 
 proposals = dir([input_proposal '*' 'txt']);
-
 recallResults = [];
 precisionResults = [];
 fscoreResults = [];
@@ -19,15 +29,16 @@ for p=1:length(proposals)
     %Read proposals
     proposalID = fopen(strcat(input_proposal,proposals(p).name));
     tline = fgetl(proposalID);
-    startBox = true;
+    lineCount = 0;
     while ischar(tline)
-        if startBox
+        if lineCount < 2
+            lineCount = lineCount+1;
             %proposalClasses = [proposalClasses; tline];
         else
+            lineCount = 0;
             proposalBoxes = [proposalBoxes; textscan(tline,'%d')];
         end
         tline = fgetl(proposalID);
-        startBox = ~startBox;
     end
     fclose(proposalID);
     
@@ -84,7 +95,7 @@ for p=1:length(proposals)
             proposalMatrix(new_aY:new_aY2, new_aX:new_aX2) = 1;
             intersection = double(sum(sum(proposalMatrix)));
             union = double((pWidth*pHeight+aWidth*aHeight)-intersection);
-            proposalArea = pWidth*pHeight;
+            proposalArea = double(pWidth*pHeight);
             %only consider anything with an overlap score of at least 0.5
             if (intersection/proposalArea > 0.5)
                 maxOverlap = max(intersection/proposalArea, maxOverlap);
@@ -131,9 +142,10 @@ for p=1:length(proposals)
             end
             annotationMatrix(new_pY:new_pY2, new_pX:new_pX2) = 1;
             intersection = double(sum(sum(annotationMatrix)));
-            annotationArea = aWidth*aHeight;
+            annotationArea = double(aWidth*aHeight);
             union = double((pWidth*pHeight+aWidth*aHeight)-intersection);
             %only consider anything with an overlap score of at least 0.5
+            
             if (intersection/annotationArea > 0.5)
                 maxOverlap = max(intersection/annotationArea, maxOverlap);
             end
@@ -144,7 +156,7 @@ for p=1:length(proposals)
         annotationTotal = annotationTotal + maxOverlap;
         mboTotal = mboTotal + maxOverlapForMBO;
     end
-    
+ 
     if size(annotationBoxes, 1) == 0
         mbo = 1;
         recall = 1;
@@ -152,16 +164,17 @@ for p=1:length(proposals)
         mbo = double(mboTotal)/size(annotationBoxes, 1);
         recall = double(annotationTotal)/size(annotationBoxes, 1);
     end
-    
+       
     fscore = 0;
     if (precision+recall > 0)
         fscore = 2*precision*recall/(precision+recall);
     end
-    
-    fprintf(outID, proposals(p).name);
-    message = sprintf('\nMBO: %f\nRecall: %f\nPrecision: %f\nFScore: %f\n', ...
-        mbo, recall, precision, fscore);
-    fprintf(outID, message);
+    if ~exist('output_file')
+        fprintf(outID, proposals(p).name);
+        message = sprintf('\nMBO: %f\nRecall: %f\nPrecision: %f\nFScore: %f\n', ...
+            mbo, recall, precision, fscore);
+        fprintf(outID, message);
+    end
     
     precisionResults = [precisionResults, precision];
     recallResults = [recallResults, recall];
@@ -169,16 +182,16 @@ for p=1:length(proposals)
     mboResults = [mboResults, mbo];
 end
 
+if ~exist('output_file')
 %Find mean of results over all images
-message = sprintf('\n\nMBO: %f\nTotal Recall: %f\nTotal Precision: %f\nTotal FScore: %f\nMBO-F average: %f\n', ...
-    mean(mboResults), mean(recallResults), mean(precisionResults), mean(fscoreResults), (mean(mboResults)+mean(fscoreResults))/2);
-fprintf(outID, message);
-fclose(outID);
-
-if exist('output_file')
-   message = sprintf('%f,%f,%f.%f\n', ...
-   mean(fscoreResults), mean(mboResults), mean(recallResults), mean(precisionResults));
-   scoreID = fopen(output_file, 'a+');
-   fprintf(scoreID, message);
-   fclose(scoreID);
+    message = sprintf('\n\nMBO: %f\nTotal Recall: %f\nTotal Precision: %f\nTotal FScore: %f\nMBO-F average: %f\n', ...
+        mean(mboResults), mean(recallResults), mean(precisionResults), mean(fscoreResults), (mean(mboResults)+mean(fscoreResults))/2);
+    fprintf(outID, message);
+    fclose(outID);
+else
+    message = sprintf('%f,%f,%f,%f,%f,', ...
+        (mean(mboResults)+mean(fscoreResults))/2,mean(fscoreResults), mean(mboResults), mean(recallResults), mean(precisionResults));
+    scoreID = fopen(output_file, 'a+');
+    fprintf(scoreID, message);
+    fclose(scoreID);
 end

@@ -26,7 +26,9 @@ def preprocess(fname):
 # ------------
 imdb_test = sys.argv[1]
 test_model = sys.argv[2]
-output_file = sys.argv[3]
+output_file = ''
+if (len(sys.argv) == 4):
+    output_file = sys.argv[3]
 #trained_model = cfg.trained_model
 trained_model = os.path.join(cfg.train_output_dir, test_model+'.h5')
 output_dir = cfg.test_output_dir
@@ -136,3 +138,4 @@ if __name__ == '__main__':
     
     test_net(net, imdb, max_per_image, thresh, vis)
     imdb.close()
+   

@@ -75,7 +75,7 @@ save_model_count = 0
 
 old_epoch = imdb.epoch
 step = 0
-while imdb.epoch < cfg.max_epoch:
+while imdb.epoch <= cfg.max_epoch:
     t.tic()
     # batch
     batch = imdb.next_batch()
@@ -86,7 +86,7 @@ while imdb.epoch < cfg.max_epoch:
             lr *= cfg.lr_decay
             optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=cfg.momentum, weight_decay=cfg.weight_decay)    
         if imdb.epoch % 10 == 0:
-            save_name = os.path.join(cfg.train_output_dir, '{}_{}.h5'.format(imdb_name, imdb.epoch))
+            save_name = os.path.join(cfg.train_output_dir, '{}_{}.h5'.format(imdb_name, old_epoch))
             net_utils.save_net(save_name, net)
             print('save model: {}'.format(save_name))
 
@@ -134,3 +134,4 @@ while imdb.epoch < cfg.max_epoch:
     step += 1
     old_epoch = imdb.epoch
 imdb.close()
+
