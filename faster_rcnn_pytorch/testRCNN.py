@@ -25,7 +25,7 @@ if (len(sys.argv) == 4):
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
 #trained_model = 'models/VGGnet_fast_rcnn_iter_70000.h5'
 #trained_model = 'models/training/darknet19_voc07trainval_exp1/darknet19_voc07trainval_exp1_1.h5'
-trained_model = 'models/training/'+test_model+'.h5'
+trained_model = 'models/training/rcnn_boat_models/'+test_model+'.h5'
 
 rand_seed = 1024
 
