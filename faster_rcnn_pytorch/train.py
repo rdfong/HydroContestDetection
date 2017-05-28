@@ -41,7 +41,7 @@ def log_print(text, color=None, on_color=None, attrs=None):
 imdb_name = sys.argv[1]
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
 pretrained_model = 'data/pretrained_model/VGG_imagenet.npy'
-output_dir = 'models/saved_model3'
+output_dir = 'models/training/rcnn_boat_models/'
 
 
 rand_seed = 1024

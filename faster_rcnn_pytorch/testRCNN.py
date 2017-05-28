@@ -19,11 +19,13 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 # ------------
 imdb_name = sys.argv[1]
 test_model = sys.argv[2]
-output_file = sys.argv[3]
+output_file = ''
+if (len(sys.argv) == 4):
+    output_file = sys.argv[3]
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
 #trained_model = 'models/VGGnet_fast_rcnn_iter_70000.h5'
 #trained_model = 'models/training/darknet19_voc07trainval_exp1/darknet19_voc07trainval_exp1_1.h5'
-trained_model = 'models/saved_model3/'+test_model+'.h5'
+trained_model = 'models/training/'+test_model+'.h5'
 
 rand_seed = 1024
 
