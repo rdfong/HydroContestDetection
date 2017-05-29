@@ -44,8 +44,13 @@ def getBestEpoch(scoreFile, output=False, outputFile=''):
 
 epochs = [10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160]
 
-#Train/Val 1
 train_val_file1 = exp_folder+'train1_val1_score.csv'
+train_val_file2 = exp_folder+'train2_val2_score.csv'
+train_val_file3 = exp_folder+'train3_val3_score.csv'
+train_val_file4 = exp_folder+'train4_val4_score.csv'
+trainval_test_file = exp_folder+'trainval_test_score.csv'
+
+#Train/Val 1
 f = open(train_val_file1, 'a+')
 f.write('Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, mAP-Train, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train\n')
 f.close()
@@ -71,7 +76,6 @@ if clean_models:
     os.system('rm -rf models/training/yolo_boat_models/*')
 
 #Train/Val 2
-train_val_file2 = exp_folder+'train2_val2_score.csv'
 f = open(train_val_file2, 'a+')
 f.write('Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, mAP-Train, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train\n')
 f.close()
@@ -97,7 +101,6 @@ if clean_models:
     os.system('rm -rf models/training/yolo_boat_models/*')
           
 #Train/Val 3
-train_val_file3 = exp_folder+'train3_val3_score.csv'
 f = open(train_val_file3, 'a+')
 f.write('Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, mAP-Train, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train\n')
 f.close()
@@ -123,7 +126,6 @@ if clean_models:
     os.system('rm -rf models/training/yolo_boat_models/*')
           
 #Train/Val 4
-train_val_file4 = exp_folder+'train4_val4_score.csv'
 f = open(train_val_file4, 'a+')
 f.write('Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, mAP-Train, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train\n')
 f.close()
@@ -157,11 +159,10 @@ tv4 = numpy.loadtxt(open(train_val_file4, "rb"), delimiter=",", skiprows=1);
 kfolds_ave = (tv1+tv2+tv3+tv4)/4.0;
 kfolds_ave = numpy.around(kfolds_ave, 6);
 numpy.savetxt(kfolds_score_file, kfolds_ave, delimiter=',',comments='',fmt='%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f', header="Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, mAP-Train, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train")
-        
+       
 getBestEpoch(kfolds_score_file, True, EXP_NAME+'_best.csv')
 
 #TrainVal Full - Only used to get proposal images/annotations
-trainval_test_file = exp_folder+'trainval_test_score.csv'
 f = open(trainval_test_file, 'a+')
 f.write('Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, mAP-Train, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train\n')
 f.close()

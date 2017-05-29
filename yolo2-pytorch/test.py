@@ -129,13 +129,10 @@ if __name__ == '__main__':
     # data loader
     imdb = BoatDataset(imdb_test, cfg.DATA_DIR, cfg.batch_size,
                       yolo_utils.preprocess_test, processes=2, shuffle=False, dst_size=cfg.inp_size)
-
     net = Darknet19()
     net_utils.load_net(trained_model, net)
-
     net.cuda()
     net.eval()
-    
     test_net(net, imdb, max_per_image, thresh, vis)
     imdb.close()
    
