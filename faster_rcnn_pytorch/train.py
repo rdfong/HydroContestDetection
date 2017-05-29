@@ -68,7 +68,7 @@ rdl_roidb.prepare_roidb(imdb)
 roidb = imdb.roidb
 data_layer = RoIDataLayer(roidb, imdb.num_classes)
 
-epochs = 160
+epochs = 80
 num_images = imdb.num_images
 start_step = 0
 end_step = epochs*num_images/cfg.TRAIN.IMS_PER_BATCH
@@ -174,7 +174,7 @@ for step in range(start_step, end_step+1):
                       'rcnn_box': float(net.loss_box.data.cpu().numpy()[0])}
             exp.add_scalar_dict(losses, step=step)
     
-    if (data_layer.epoch > cur_epoch and data_layer.epoch%10 == 0 and step > 0):
+    if (data_layer.epoch > cur_epoch and data_layer.epoch%5 == 0 and step > 0):
         save_name = os.path.join(output_dir, '{}_{}.h5'.format(imdb_name, data_layer.epoch))
         network.save_net(save_name, net)
         print('save model: {}'.format(save_name))

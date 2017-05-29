@@ -42,10 +42,15 @@ def getBestEpoch(scoreFile, output=False, outputFile=''):
     #best trainval h5 model (potential best model)
     #image outputs and proposals on all test images (just for qualitative comparison)
 
-epochs = [10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160]
+epochs = [5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80]
+
+train_val_file1 = exp_folder+'train1_val1_score.csv'
+train_val_file2 = exp_folder+'train2_val2_score.csv'
+train_val_file3 = exp_folder+'train3_val3_score.csv'
+train_val_file4 = exp_folder+'train4_val4_score.csv'
+trainval_test_file = exp_folder+'trainval_test_score.csv'
 
 #Train/Val 1
-train_val_file1 = exp_folder+'train1_val1_score.csv'
 f = open(train_val_file1, 'a+')
 f.write('Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, mAP-Train, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train\n')
 f.close()
@@ -71,7 +76,6 @@ if clean_models:
     os.system('rm -rf models/training/rcnn_boat_models/*')
 
 #Train/Val 2
-train_val_file2 = exp_folder+'train2_val2_score.csv'
 f = open(train_val_file2, 'a+')
 f.write('Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, mAP-Train, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train\n')
 f.close()
@@ -97,12 +101,11 @@ if clean_models:
     os.system('rm -rf models/training/rcnn_boat_models/*')
           
 #Train/Val 3
-train_val_file3 = exp_folder+'train3_val3_score.csv'
 f = open(train_val_file3, 'a+')
 f.write('Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, mAP-Train, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train\n')
 f.close()
-if not test_only:
-    os.system('CUDA_VISIBLE_DEVICES='+DEVICE+' python train.py voc_boat_train3')
+#if not test_only:
+#    os.system('CUDA_VISIBLE_DEVICES='+DEVICE+' python train.py voc_boat_train3')
 for epoch in epochs:
     f = open(train_val_file3, 'a+')
     f.write(str(epoch)+',')
@@ -123,7 +126,6 @@ if clean_models:
     os.system('rm -rf models/training/rcnn_boat_models/*')
           
 #Train/Val 4
-train_val_file4 = exp_folder+'train4_val4_score.csv'
 f = open(train_val_file4, 'a+')
 f.write('Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, mAP-Train, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train\n')
 f.close()
@@ -161,7 +163,6 @@ numpy.savetxt(kfolds_score_file, kfolds_ave, delimiter=',',comments='',fmt='%d,%
 getBestEpoch(kfolds_score_file, True, EXP_NAME+'_best.csv')
 
 #TrainVal Full - Only used to get proposal images/annotations
-trainval_test_file = exp_folder+'trainval_test_score.csv'
 f = open(trainval_test_file, 'a+')
 f.write('Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, mAP-Train, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train\n')
 f.close()
