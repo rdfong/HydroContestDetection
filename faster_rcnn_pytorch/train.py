@@ -150,8 +150,8 @@ for step in range(start_step, end_step+1):
         duration = t.toc(average=False)
         fps = step_cnt / duration
 
-        log_text = 'step %d, image: %s, loss: %.4f, fps: %.2f (%.2fs per batch)' % (
-            step, blobs['im_name'], train_loss / step_cnt, fps, 1./fps)
+        log_text = 'step %d, loss: %.4f, fps: %.2f (%.2fs per batch)' % (
+            step, train_loss / step_cnt, fps, 1./fps)
         log_print(log_text, color='green', attrs=['bold'])
 
         if _DEBUG:

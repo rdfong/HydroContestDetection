@@ -65,32 +65,31 @@ def proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info, cfg_key, _feat_
 
     # rpn_cls_prob_reshape = np.transpose(np.reshape(rpn_cls_prob_reshape,[1,rpn_cls_prob_reshape.shape[0],rpn_cls_prob_reshape.shape[1],rpn_cls_prob_reshape.shape[2]]),[0,3,2,1])
     # rpn_bbox_pred = np.transpose(rpn_bbox_pred,[0,3,2,1])
-    im_info = im_info[0]
-
-    assert rpn_cls_prob_reshape.shape[0] == 1, \
-        'Only single item batches are supported'
+    #assert rpn_cls_prob_reshape.shape[0] == 1, \
+    #    'Only single item batches are supported'
     # cfg_key = str(self.phase) # either 'TRAIN' or 'TEST'
     # cfg_key = 'TEST'
     pre_nms_topN = cfg[cfg_key].RPN_PRE_NMS_TOP_N
     post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N
     nms_thresh = cfg[cfg_key].RPN_NMS_THRESH
     min_size = cfg[cfg_key].RPN_MIN_SIZE
-
+    
+    im_info = im_info[0]
     # the first set of _num_anchors channels are bg probs
     # the second set are the fg probs, which we want
     scores = rpn_cls_prob_reshape[:, _num_anchors:, :, :]
     bbox_deltas = rpn_bbox_pred
     # im_info = bottom[2].data[0, :]
 
-    if DEBUG:
-        print 'im_size: ({}, {})'.format(im_info[0], im_info[1])
-        print 'scale: {}'.format(im_info[2])
+    #if DEBUG:
+    #    print 'im_size: ({}, {})'.format(im_info[0], im_info[1])
+    #    print 'scale: {}'.format(im_info[2])
 
     # 1. Generate proposals from bbox deltas and shifted anchors
     height, width = scores.shape[-2:]
 
-    if DEBUG:
-        print 'score map size: {}'.format(scores.shape)
+    #if DEBUG:
+    #    print 'score map size: {}'.format(scores.shape)
 
     # Enumerate all shifts
     shift_x = np.arange(0, width) * _feat_stride

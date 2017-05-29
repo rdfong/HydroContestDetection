@@ -39,11 +39,15 @@ def get_minibatch(roidb, num_classes):
         #assert len(im_scales) == 1, "Single batch only"
         #assert len(roidb) == 1, "Single batch only"
         # gt boxes: (x1, y1, x2, y2, cls)
+        blobs['gt_boxes'] = np.zeros([0, 5], dtype=np.float32);
+        blobs['gt_ishard'] = np.zeros(0, dtype=int)
+        blobs['dontcare_areas'] = np.zeros([0, 4], dtype=np.float32)
+        blobs['im_info'] = np.zeros([0,3], dtype=np.float32);
         for i in range(cfg.TRAIN.IMS_PER_BATCH):
             gti_inds = np.where(roidb[i]['gt_classes'] != 0)[0]
-            gti_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
-            gti_boxes[:, 0:4] = roidb[i]['boxes'][gt_inds, :] * im_scales[0]
-            gti_boxes[:, 4] = roidb[i]['gt_classes'][gt_inds]
+            gti_boxes = np.empty((len(gti_inds), 5), dtype=np.float32)
+            gti_boxes[:, 0:4] = roidb[i]['boxes'][gti_inds, :] * im_scales[0]
+            gti_boxes[:, 4] = roidb[i]['gt_classes'][gti_inds]
             blobs['gt_boxes'] = np.concatenate([blobs['gt_boxes'], gti_boxes])
             blobs['gt_ishard'] = np.concatenate([blobs['gt_ishard'], roidb[i]['gt_ishard'][gti_inds]  \
                 if 'gt_ishard' in roidb[i] else np.zeros(gti_inds.size, dtype=int)])
@@ -53,7 +57,6 @@ def get_minibatch(roidb, num_classes):
             blobs['im_info'] = np.concatenate([blobs['im_info'], np.array(
                 [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
                 dtype=np.float32)])
-            blobs['im_name'] = np.concatenate([blobs['im_name'], os.path.basename(roidb[i]['image'])])
 
     else: # not using RPN
         # Now, build the region of interest and label blobs
