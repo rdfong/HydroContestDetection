@@ -15,7 +15,7 @@ def mkdir(path, max_depth=3):
 # input and output size
 ############################
 inp_size = np.array([416, 416], dtype=np.int)   # w, h
-out_size = inp_size / 32
+out_size = inp_size / 16
 
 
 # for display

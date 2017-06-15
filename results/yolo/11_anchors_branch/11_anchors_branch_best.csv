@@ -1,0 +1,2 @@
+Epoch, mAP-Test, F-MABO-Ave-Test, FScore-Test, MABO-Test, Recall-Test, Precision-Test, F-MABO-Ave-Train, FScore-Train, MABO-Train, Recall-Train, Precision-Train
+70,0.394486,0.367303,0.272020,0.462587,0.960399,0.184856,0.638397,0.440498,0.273586,0.607410,0.985498,0.175367

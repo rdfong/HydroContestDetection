@@ -31,7 +31,7 @@ rand_seed = 1024
 
 save_name = 'faster_rcnn_boat_results'
 max_per_image = 300
-thresh = 0.01
+thresh = 0.40
 vis = False
 test_boats = True
 # ------------

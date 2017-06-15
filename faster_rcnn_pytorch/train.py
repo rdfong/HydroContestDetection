@@ -93,6 +93,7 @@ net.train()
 params = list(net.parameters())
 # optimizer = torch.optim.Adam(params[-8:], lr=lr)
 optimizer = torch.optim.SGD(params[8:], lr=lr, momentum=momentum, weight_decay=weight_decay)
+#optimizer = torch.optim.Adam(params[8:], lr=lr, weight_decay=weight_decay)
 
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
@@ -183,7 +184,7 @@ for step in range(start_step, end_step+1):
     if step in lr_decay_steps:
         lr *= lr_decay
         optimizer = torch.optim.SGD(params[8:], lr=lr, momentum=momentum, weight_decay=weight_decay)
-
+        #optimizer = torch.optim.Adam(params[8:], lr=lr, weight_decay=weight_decay)
     if re_cnt:
         tp, tf, fg, bg = 0., 0., 0, 0
         train_loss = 0

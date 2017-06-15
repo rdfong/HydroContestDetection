@@ -48,6 +48,7 @@ print('load net succ...')
 start_epoch = 0
 lr = cfg.init_learning_rate
 optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=cfg.momentum, weight_decay=cfg.weight_decay)
+#optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=cfg.weight_decay)
 
 # tensorboad
 use_tensorboard = cfg.use_tensorboard and CrayonClient is not None
@@ -85,6 +86,7 @@ while imdb.epoch <= cfg.max_epoch:
         if imdb.epoch in cfg.lr_decay_epochs:
             lr *= cfg.lr_decay
             optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=cfg.momentum, weight_decay=cfg.weight_decay)    
+            #optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=cfg.weight_decay)
         if imdb.epoch % 10 == 0:
             save_name = os.path.join(cfg.train_output_dir, '{}_{}.h5'.format(imdb_name, imdb.epoch))
             net_utils.save_net(save_name, net)

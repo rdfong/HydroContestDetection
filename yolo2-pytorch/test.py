@@ -34,7 +34,8 @@ trained_model = os.path.join(cfg.train_output_dir, test_model+'.h5')
 output_dir = cfg.test_output_dir
 
 max_per_image = 300
-thresh = 0.01
+thresh = 0.10
+nms_thresh = 0.825
 vis = False
 test_boats = True
 # ------------
@@ -73,7 +74,7 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
         dets = np.empty([0, 5], dtype=np.float32)
         if (len(bboxes) > 0):
             dets = np.hstack((bboxes, scores[:, np.newaxis])).astype(np.float32, copy=False)
-        keep = nms(dets, 0.5)
+        keep = nms(dets, nms_thresh)
         all_boxes[i] = dets[keep, :]
 
         # Limit to max_per_image detections *over all classes*
