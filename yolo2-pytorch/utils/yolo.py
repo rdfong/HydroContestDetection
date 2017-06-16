@@ -1,5 +1,6 @@
 import cv2
 import os
+import sys
 import numpy as np
 from im_transform import imcv2_affine_trans, imcv2_recolor
 # from box import BoundBox, box_iou, prob_compare
@@ -34,12 +35,11 @@ def nms_detections(pred_boxes, scores, nms_thresh):
 
 def _offset_boxes(boxes, horizon, im_shape, scale, offs, flip):
     if len(boxes) == 0:
-        return boxes
+        return boxes, horizon
     boxes = np.asarray(boxes, dtype=np.float)
     boxes *= scale
     horizon = np.asarray(horizon, dtype=np.float)
     horizon *= scale
-
     boxes[:, 0::2] -= offs[0]
     boxes[:, 1::2] -= offs[1]
     boxes = clip_boxes(boxes, im_shape)
@@ -53,22 +53,18 @@ def _offset_boxes(boxes, horizon, im_shape, scale, offs, flip):
         boxes[:, 2] = im_shape[1] - boxes_x
         temp = horizon[1]
         horizon[1] = horizon[3]
-        horizon[3] = horizon[1]
-
+        horizon[3] = temp
     return boxes, horizon
 
 
 def preprocess_train(data):
     im_path, blob, inp_size = data
     boxes, gt_classes, horizon = blob['boxes'], blob['gt_classes'], blob['horizon']
-
     im = cv2.imread(im_path)
     ori_im = np.copy(im)
- 
     im, trans_param = imcv2_affine_trans(im)
     scale, offs, flip = trans_param
     boxes, horizon = _offset_boxes(boxes, horizon, im.shape, scale, offs, flip)
-
     if inp_size is not None:
         w, h = inp_size
         temp = boxes[:,0::2] *  float(w) / im.shape[1]
@@ -90,7 +86,6 @@ def preprocess_train(data):
     # im = cv2.resize(im, (w, h))
     # im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     # im /= 255
-    
     boxes = np.asarray(boxes, dtype=np.int)
     horizon = np.asarray(horizon, dtype=np.int)
     return im, boxes, horizon, gt_classes, [], ori_im

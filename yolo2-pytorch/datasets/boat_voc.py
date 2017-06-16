@@ -92,7 +92,16 @@ class BoatDataset(ImageDataset):
 
         hfilename = os.path.join(self._data_path,'../images/', index + '.JPG_horizon.txt')
         horizon = np.loadtxt(open(hfilename, "rb"), delimiter=" ");
+        leftintercept = horizon[0]
+        rightintercept = horizon[1]
+        width = horizon[2]
+        height = horizon[3]
         
+        horizon[0] = 0
+        horizon[1] = leftintercept
+        horizon[2] = width-1
+        horizon[3] = rightintercept
+
         # Load object bounding boxes into a data frame.
         for ix, obj in enumerate(objs):
             bbox = obj.find('bndbox')

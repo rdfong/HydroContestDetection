@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+import sys
 
 import utils.network as net_utils
 import cfgs.config as cfg
@@ -169,7 +170,8 @@ class Darknet19(nn.Module):
         self.conv5 = net_utils.Conv2d(c4, out_channels, 1, 1, relu=False)
         
         self.hFC1 = net_utils.FC(4, 32);
-        self.hFC2 = net_utils.FC(32, 32);
+        self.hFC2 = net_utils.FC(32, out_channels*26*26);
+        #maybe we just want object probabilities, 26*26
 
         # train
         self.bbox_loss = None
@@ -195,16 +197,19 @@ class Darknet19(nn.Module):
         
         h1 = self.hFC1(horizon) #BATCH SIZE, 32
         h2 = self.hFC2(h1) #BATCHSIZE, 32
-        
-        
-        conv5 = self.conv5(conv4)   # batch_size, out_channels, h, w
+        conv5horizon = h2.view(8, 90, 26, 26)
+        #reshape h2 to conv5 size (TODO: may want to consider only doing some of the weights, maybe just the probabilities)
+        #conv5horizon = ;
 
+        #print conv5horizon.size()
+
+        conv5 = self.conv5(conv4) + conv5horizon   # batch_size, out_channels, h, w
         # for detection
         # bsize, c, h, w -> bsize, h, w, c -> bsize, h x w, num_anchors, 5+num_classes
         bsize, _, h, w = conv5.size()
         # assert bsize == 1, 'detection only support one image per batch'
         conv5_reshaped = conv5.permute(0, 2, 3, 1).contiguous().view(bsize, -1, cfg.num_anchors, cfg.num_classes + 5)
-
+        
         # tx, ty, tw, th, to -> sig(tx), sig(ty), exp(tw), exp(th), sig(to)
         xy_pred = F.sigmoid(conv5_reshaped[:, :, :, 0:2])
         wh_pred = torch.exp(conv5_reshaped[:, :, :, 2:4])

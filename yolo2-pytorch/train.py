@@ -25,10 +25,10 @@ meta = imdb_name.split('_')
 imdb = None
 if meta[1] == 'boat':
     imdb = BoatDataset(imdb_name, cfg.DATA_DIR, cfg.train_batch_size,
-                  yolo_utils.preprocess_train, processes=2, shuffle=True, dst_size=cfg.inp_size)
+                  yolo_utils.preprocess_train, processes=1, shuffle=True, dst_size=cfg.inp_size)
 else:
     imdb = VOCDataset(imdb_name, cfg.DATA_DIR, cfg.train_batch_size,
-                  yolo_utils.preprocess_train, processes=2, shuffle=True, dst_size=cfg.inp_size)
+                  yolo_utils.preprocess_train, processes=1, shuffle=True, dst_size=cfg.inp_size)
 print('load data succ...')
 
 net = Darknet19()
