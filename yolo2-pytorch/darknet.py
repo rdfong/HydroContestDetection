@@ -167,6 +167,9 @@ class Darknet19(nn.Module):
         # linear
         out_channels = cfg.num_anchors * (cfg.num_classes + 5)
         self.conv5 = net_utils.Conv2d(c4, out_channels, 1, 1, relu=False)
+        
+        self.hFC1 = net_utils.FC(4, 32);
+        self.hFC2 = net_utils.FC(32, 32);
 
         # train
         self.bbox_loss = None
@@ -178,7 +181,7 @@ class Darknet19(nn.Module):
     def loss(self):
         return self.bbox_loss + self.iou_loss + self.cls_loss
 
-    def forward(self, im_data, gt_boxes=None, gt_classes=None, dontcare=None):
+    def forward(self, im_data, horizon, gt_boxes=None, gt_classes=None, dontcare=None):
         conv1s = self.conv1s(im_data)
 
         conv2 = self.conv2(conv1s)
@@ -189,6 +192,13 @@ class Darknet19(nn.Module):
         cat_1_3 = torch.cat([conv1s_reorg, conv3], 1)
 
         conv4 = self.conv4(cat_1_3)
+        
+        h1 = self.hFC1(horizon) #BATCH SIZE, 32
+        h2 = self.hFC2(h1) #BATCHSIZE, 32
+        print h1.size()
+        print h2.size()
+        
+        
         conv5 = self.conv5(conv4)   # batch_size, out_channels, h, w
 
         # for detection

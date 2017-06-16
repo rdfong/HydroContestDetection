@@ -94,13 +94,14 @@ while imdb.epoch <= cfg.max_epoch:
 
     im = batch['images']
     gt_boxes = batch['gt_boxes']
+    horizon = batch['horizon']
     gt_classes = batch['gt_classes']
     dontcare = batch['dontcare']
     orgin_im = batch['origin_im']
 
     # forward
     im_data = net_utils.np_to_variable(im, is_cuda=True, volatile=False).permute(0, 3, 1, 2)
-    net(im_data, gt_boxes, gt_classes, dontcare)
+    net(im_data, horizon, gt_boxes, gt_classes, dontcare)
 
     # backward
     loss = net.loss

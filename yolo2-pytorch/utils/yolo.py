@@ -32,21 +32,30 @@ def nms_detections(pred_boxes, scores, nms_thresh):
     return keep
 
 
-def _offset_boxes(boxes, im_shape, scale, offs, flip):
+def _offset_boxes(boxes, horizon, im_shape, scale, offs, flip):
     if len(boxes) == 0:
         return boxes
     boxes = np.asarray(boxes, dtype=np.float)
     boxes *= scale
+    horizon = np.asarray(horizon, dtype=np.float)
+    horizon *= scale
+
     boxes[:, 0::2] -= offs[0]
     boxes[:, 1::2] -= offs[1]
     boxes = clip_boxes(boxes, im_shape)
+
+    horizon[0::2] -= offs[0]
+    horizon[1::2] -= offs[1]
 
     if flip:
         boxes_x = np.copy(boxes[:, 0])
         boxes[:, 0] = im_shape[1] - boxes[:, 2]
         boxes[:, 2] = im_shape[1] - boxes_x
+        temp = horizon[1]
+        horizon[1] = horizon[3]
+        horizon[3] = horizon[1]
 
-    return boxes
+    return boxes, horizon
 
 
 def preprocess_train(data):
@@ -58,13 +67,18 @@ def preprocess_train(data):
 
     im, trans_param = imcv2_affine_trans(im)
     scale, offs, flip = trans_param
-    boxes = _offset_boxes(boxes, im.shape, scale, offs, flip)
+    boxes, horizon = _offset_boxes(boxes, horizon, im.shape, scale, offs, flip)
     if inp_size is not None:
         w, h = inp_size
         temp = boxes[:,0::2] *  float(w) / im.shape[1]
         boxes[:, 0::2] = temp
         temp = boxes[:,1::2] *  float(h) / im.shape[0]
         boxes[:, 1::2] = temp
+        
+        temp = horizon[0::2] * float(w) / im.shape[1]
+        horizon[0::2] = temp
+        temp = horizon[1::2] * float(h) / im.shape[0]
+        horizon[1::2] = temp
         im = cv2.resize(im, (w, h))
     im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     im = imcv2_recolor(im)
@@ -77,7 +91,8 @@ def preprocess_train(data):
     # im /= 255
     
     boxes = np.asarray(boxes, dtype=np.int)
-    return im, boxes, gt_classes, [], ori_im
+    horizon = np.asarray(horizon, dtype=np.int)
+    return im, boxes, horizon, gt_classes, [], ori_im
 
 
 def preprocess_test(data):

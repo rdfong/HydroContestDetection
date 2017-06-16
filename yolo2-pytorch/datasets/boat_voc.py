@@ -69,6 +69,7 @@ class BoatDataset(ImageDataset):
         format.
         """
         filename = os.path.join(self._data_path,'../annotations/VOC_annotations/', index + '.JPG.xml')
+        
         tree = ET.parse(filename)
         objs = tree.findall('object')
         # if not self.config['use_diff']:
@@ -88,6 +89,10 @@ class BoatDataset(ImageDataset):
         seg_areas = np.zeros((num_objs), dtype=np.float32)
         ishards = np.zeros((num_objs), dtype=np.int32)
 
+
+        hfilename = os.path.join(self._data_path,'../images/', index + '.JPG_horizon.txt')
+        horizon = numpy.loadtxt(open(hfilename, "rb"), delimiter=" ");
+        
         # Load object bounding boxes into a data frame.
         for ix, obj in enumerate(objs):
             bbox = obj.find('bndbox')
@@ -110,6 +115,7 @@ class BoatDataset(ImageDataset):
         overlaps = scipy.sparse.csr_matrix(overlaps)
 
         return {'boxes': boxes,
+                'horizon': horizon,
                 'gt_classes': gt_classes,
                 'gt_ishard': ishards,
                 'gt_overlaps': overlaps,

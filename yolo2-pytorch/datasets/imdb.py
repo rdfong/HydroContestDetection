@@ -39,13 +39,14 @@ class ImageDataset(object):
         self._im_processor = im_processor
 
     def next_batch(self):
-        batch = {'images': [], 'gt_boxes': [], 'gt_classes': [], 'dontcare': [], 'origin_im': []}
+        batch = {'images': [], 'gt_boxes': [], 'horizon': [], 'gt_classes': [], 'dontcare': [], 'origin_im': []}
         i = 0
         while i < self.batch_size:
             try:
-                images, gt_boxes, classes, dontcare, origin_im = self.gen.next()
+                images, gt_boxes, horizon, classes, dontcare, origin_im = self.gen.next()
                 batch['images'].append(images)
                 batch['gt_boxes'].append(gt_boxes)
+                batch['horizon'].append(horizon)
                 batch['gt_classes'].append(classes)
                 batch['dontcare'].append(dontcare)
                 batch['origin_im'].append(origin_im)
