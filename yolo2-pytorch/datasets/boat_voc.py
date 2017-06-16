@@ -91,7 +91,7 @@ class BoatDataset(ImageDataset):
 
 
         hfilename = os.path.join(self._data_path,'../images/', index + '.JPG_horizon.txt')
-        horizon = numpy.loadtxt(open(hfilename, "rb"), delimiter=" ");
+        horizon = np.loadtxt(open(hfilename, "rb"), delimiter=" ");
         
         # Load object bounding boxes into a data frame.
         for ix, obj in enumerate(objs):

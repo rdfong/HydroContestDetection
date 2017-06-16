@@ -56,7 +56,7 @@ class ImageDataset(object):
                 if self._shuffle:
                     np.random.shuffle(indexes)
                 self.gen = self.pool.imap(self._im_processor,
-                                          ([self.image_names[i], self.get_annotation(i), self.dst_size] for i in indexes),
+                                          ([self.image_names[i], self.get_annotation(i),  self.dst_size] for i in indexes),
                                           chunksize=self.batch_size)
                 self._epoch += 1
                 print('epoch {} start...'.format(self._epoch))

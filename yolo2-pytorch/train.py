@@ -101,6 +101,7 @@ while imdb.epoch <= cfg.max_epoch:
 
     # forward
     im_data = net_utils.np_to_variable(im, is_cuda=True, volatile=False).permute(0, 3, 1, 2)
+    horizon = net_utils.np_to_variable(np.asarray(horizon), is_cuda=True, volatile=False)
     net(im_data, horizon, gt_boxes, gt_classes, dontcare)
 
     # backward

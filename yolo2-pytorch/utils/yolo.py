@@ -60,14 +60,15 @@ def _offset_boxes(boxes, horizon, im_shape, scale, offs, flip):
 
 def preprocess_train(data):
     im_path, blob, inp_size = data
-    boxes, gt_classes = blob['boxes'], blob['gt_classes']
+    boxes, gt_classes, horizon = blob['boxes'], blob['gt_classes'], blob['horizon']
 
     im = cv2.imread(im_path)
     ori_im = np.copy(im)
-
+ 
     im, trans_param = imcv2_affine_trans(im)
     scale, offs, flip = trans_param
     boxes, horizon = _offset_boxes(boxes, horizon, im.shape, scale, offs, flip)
+
     if inp_size is not None:
         w, h = inp_size
         temp = boxes[:,0::2] *  float(w) / im.shape[1]

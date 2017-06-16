@@ -195,8 +195,6 @@ class Darknet19(nn.Module):
         
         h1 = self.hFC1(horizon) #BATCH SIZE, 32
         h2 = self.hFC2(h1) #BATCHSIZE, 32
-        print h1.size()
-        print h2.size()
         
         
         conv5 = self.conv5(conv4)   # batch_size, out_channels, h, w

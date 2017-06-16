@@ -58,7 +58,7 @@ def test_net(net, imdb, max_per_image=300, thresh=0.5, vis=False):
         ori_im = batch['origin_im'][0]
         horizon = batch['horizon']
         im_data = net_utils.np_to_variable(batch['images'], is_cuda=True, volatile=True).permute(0, 3, 1, 2)
-       
+        horizon = net_utils.np_to_variable(np.asarray(horizon), is_cuda=True, volatile=False)
         _t['im_detect'].tic()
         bbox_pred, iou_pred, prob_pred = net(im_data, horizon)
        
