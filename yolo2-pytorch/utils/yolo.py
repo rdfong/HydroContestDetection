@@ -93,7 +93,8 @@ def preprocess_train(data):
 
 def preprocess_test(data):
 
-    im, _, inp_size = data
+    im, blob, inp_size = data
+    horizon = np.asarray(blob['horizon'])
     if isinstance(im, (str, unicode)):
         im = cv2.imread(im)
     ori_im = np.copy(im)
@@ -104,7 +105,7 @@ def preprocess_test(data):
     im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     im = im / 255.
 
-    return im, [], [], [], ori_im
+    return im, [], horizon, [], [], ori_im
 
 
 def postprocess(bbox_pred, iou_pred, prob_pred, im_shape, cfg, thresh=0.05):

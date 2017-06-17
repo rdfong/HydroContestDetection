@@ -35,7 +35,7 @@ output_dir = cfg.test_output_dir
 
 max_per_image = 300
 thresh = 0.10
-nms_thresh = 0.825
+nms_thresh = 0.875
 vis = False
 test_boats = True
 # ------------
