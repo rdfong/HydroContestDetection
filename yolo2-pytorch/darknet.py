@@ -169,8 +169,8 @@ class Darknet19(nn.Module):
         out_channels = cfg.num_anchors * (cfg.num_classes + 5)
         self.conv5 = net_utils.Conv2d(c4, out_channels, 1, 1, relu=False)
         
-        self.hFC1 = net_utils.FC(4, 32);
-        self.hFC2 = net_utils.FC(32, 9*6*26*26);
+#        self.hFC1 = net_utils.FC(4, 32);
+#        self.hFC2 = net_utils.FC(32, 9*6*26*26);
         #maybe we just want object probabilities, 26*26
 
         # train
@@ -200,14 +200,14 @@ class Darknet19(nn.Module):
         # bsize, c, h, w -> bsize, h, w, c -> bsize, h x w, num_anchors, 5+num_classes
         bsize, _, h, w = conv5.size()
 
-        h1 = self.hFC1(horizon) #BATCH SIZE, 32
-        h2 = self.hFC2(h1) #BATCHSIZE, 32
-        h2 = h2.view(bsize, 26*26, cfg.num_anchors, 6)
+#        h1 = self.hFC1(horizon) #BATCH SIZE, 32
+#        h2 = self.hFC2(h1) #BATCHSIZE, 32
+#        h2 = h2.view(bsize, 26*26, cfg.num_anchors, 6)
         
         # assert bsize == 1, 'detection only support one image per batch'
         conv5_reshaped = conv5.permute(0, 2, 3, 1).contiguous().view(bsize, -1, cfg.num_anchors, cfg.num_classes + 5)
-        temp = torch.mul(conv5_reshaped[:,:,:,4:10],h2)
-        conv5_reshaped = torch.cat((conv5_reshaped[:,:,:,0:4], temp), 3)
+#        temp = torch.mul(conv5_reshaped[:,:,:,4:10],h2)
+#        conv5_reshaped = torch.cat((conv5_reshaped[:,:,:,0:4], temp), 3)
         
         # tx, ty, tw, th, to -> sig(tx), sig(ty), exp(tw), exp(th), sig(to)
         xy_pred = F.sigmoid(conv5_reshaped[:, :, :, 0:2])
