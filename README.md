@@ -39,6 +39,10 @@ faster_rcnn_pytorch/yolo-pytorch:
     
     -> Proposals end up in HydroTestSuite/proposals/(rcnn/yolo)
 
+results:
+    Contains all results for all CNN based methods outputted by runExperiment.py script.
+    
+    
 TestMedia:
     Contains images and videos used in testing implementation during development process.
     Due to lack of images in the training/test set there is some overlap with the annotated images.
