@@ -31,4 +31,20 @@ score.m
 
 setHorizons.m
     A script to get manually specified horizon line data for each image, outputted to images/ folder.
+    
+
+CNN method scripts:
+
+getBoundingBoxClusters.m:
+    Runs kMeans on HydroContest bounding boxes to determine anchors for YOLO.
+
+customKMeans.m: 
+    Just an imlementation of K-Means that uses a custom distance function.
+
+iouCentered.m:
+    Calculates intersection over union (IOU) of two centered boxes. Used as distance function for customKMeans.m.
+    
+pixelMean.m:
+    Calculates mean BGR values over HydroContest images. Mean is subtracted for pixel values in Faster R-CNN before finding convolutional features.
+
 
